@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 48" fill="none">
+  <defs>
+    <linearGradient id="gA5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+  </defs>
+  <!-- Icon: rounded square with pulse waveform, green -->
+  <rect x="2" y="8" width="32" height="32" rx="8" fill="url(#gA5)"/>
+  <rect x="2" y="8" width="32" height="32" rx="8" fill="white" fill-opacity="0.08"/>
+  <polyline points="8,24 12,24 14,16 16,32 18,20 20,28 22,24 28,24" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Text: monospace terminal style -->
+  <text x="44" y="29" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="#E0FFE8" letter-spacing="-0.5">Pulsar</text>
+  <text x="111" y="29" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="#34D399" letter-spacing="-0.5">AI</text>
+</svg>

@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PulsarAI — Dark Minimal Pro</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --accent: #06B6D4;
+    --accent-hover: #22D3EE;
+    --accent-dim: rgba(6,182,212,0.12);
+    --bg-base: #0D0D0D;
+    --bg-panel: #111111;
+    --bg-hover: #1A1A1A;
+    --bg-active: #1F1F1F;
+    --border: #222222;
+    --border-mid: #2A2A2A;
+    --text-primary: #EBEBEB;
+    --text-secondary: #666666;
+    --text-muted: #3A3A3A;
+    --user-bubble-bg: #1A1A2E;
+    --user-bubble-border: #2A2A4A;
+    --ai-bubble-bg: #161616;
+    --sidebar-w: 240px;
+    --radius: 8px;
+    --radius-sm: 6px;
+    --font: 'Inter', system-ui, sans-serif;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  html, body { height: 100%; overflow: hidden; background: var(--bg-base); font-family: var(--font); color: var(--text-primary); }
+
+  .app { display: flex; height: 100vh; }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    width: var(--sidebar-w); flex-shrink: 0;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-top {
+    padding: 14px 12px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 8px;
+    padding: 2px 4px;
+  }
+  .logo-mark {
+    position: relative; width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-ring {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-ring::after {
+    content: '';
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .logo-name { font-size: 13px; font-weight: 600; letter-spacing: -0.2px; }
+  .logo-name em { font-style: normal; color: var(--accent); }
+
+  .new-btn {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 10px; border-radius: var(--radius-sm);
+    background: var(--bg-hover); border: 1px solid var(--border-mid);
+    color: var(--text-secondary); font-size: 12px;
+    cursor: pointer; transition: all .15s; text-decoration: none;
+  }
+  .new-btn:hover { color: var(--text-primary); border-color: #333; }
+  .new-btn-icon {
+    width: 16px; height: 16px; border-radius: 4px;
+    border: 1px solid var(--text-muted);
+    display: flex; align-items: center; justify-content: center; font-size: 11px;
+  }
+
+  .sidebar-nav { flex: 1; padding: 8px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+  .nav-section { margin-top: 8px; }
+  .nav-label { font-size: 10px; color: var(--text-muted); padding: 4px 6px 3px; letter-spacing: 0.8px; text-transform: uppercase; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: var(--radius-sm);
+    font-size: 12.5px; color: var(--text-secondary);
+    cursor: pointer; transition: all .12s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .nav-item.active { background: var(--bg-active); color: var(--text-primary); }
+  .nav-item.active::before { content: ''; width: 2px; height: 14px; background: var(--accent); border-radius: 1px; flex-shrink: 0; }
+
+  .sidebar-footer {
+    padding: 10px 10px 12px;
+    border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .mode-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 6px; border-radius: var(--radius-sm);
+    font-size: 11.5px; color: var(--text-secondary);
+    cursor: pointer; transition: all .12s;
+  }
+  .mode-row:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .mode-row.active { color: var(--accent); }
+  .mode-row .mode-indicator {
+    width: 6px; height: 6px; border-radius: 1px; flex-shrink: 0;
+    background: var(--text-muted);
+  }
+  .mode-row.active .mode-indicator { background: var(--accent); }
+
+  .user-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 6px 0;
+    margin-top: 4px;
+  }
+  .user-ava {
+    width: 26px; height: 26px; border-radius: var(--radius-sm);
+    background: var(--bg-active); border: 1px solid var(--border-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--accent); font-weight: 600;
+  }
+  .user-meta { flex: 1; }
+  .user-meta .n { font-size: 11.5px; font-weight: 500; }
+  .user-meta .p { font-size: 10px; color: var(--text-muted); }
+  .cfg-btn {
+    font-size: 13px; color: var(--text-muted); cursor: pointer;
+    transition: color .15s; width: 20px; text-align: center;
+  }
+  .cfg-btn:hover { color: var(--text-primary); }
+
+  /* ─── MAIN ─── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .header {
+    padding: 0 20px;
+    height: 48px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+    flex-shrink: 0;
+  }
+  .header-title { font-size: 13px; font-weight: 500; flex: 1; }
+  .header-sub { font-size: 11px; color: var(--text-muted); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 20px;
+    font-size: 11px; border: 1px solid var(--border-mid);
+    color: var(--text-secondary); white-space: nowrap;
+  }
+  .pill.online { color: var(--accent); border-color: rgba(6,182,212,0.25); }
+  .pill-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  .hdr-btn {
+    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: none; color: var(--text-muted); font-size: 13px;
+    cursor: pointer; transition: all .12s;
+  }
+  .hdr-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+  /* params strip */
+  .strip {
+    display: flex; align-items: center; gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel); flex-shrink: 0;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .strip::-webkit-scrollbar { display: none; }
+  .strip-item {
+    padding: 7px 14px; font-size: 11px; color: var(--text-muted);
+    border-right: 1px solid var(--border); cursor: pointer;
+    transition: all .12s; white-space: nowrap;
+    display: flex; gap: 5px;
+  }
+  .strip-item:hover { color: var(--text-secondary); background: var(--bg-hover); }
+  .strip-item strong { color: var(--text-primary); }
+
+  /* messages */
+  .messages {
+    flex: 1; overflow-y: auto; padding: 0;
+    scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent;
+  }
+  .messages::-webkit-scrollbar { width: 3px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border-mid); }
+
+  .msg-group {
+    display: flex; gap: 0;
+    border-bottom: 1px solid var(--border);
+    transition: background .1s;
+  }
+  .msg-group:hover { background: rgba(255,255,255,0.01); }
+  .msg-group.user { background: rgba(6,182,212,0.02); }
+  .msg-group.user:hover { background: rgba(6,182,212,0.04); }
+
+  .msg-gutter {
+    width: 56px; flex-shrink: 0; padding: 16px 0 16px 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .gutter-ava {
+    width: 28px; height: 28px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center; font-size: 12px;
+    flex-shrink: 0;
+  }
+  .gutter-ava.ai { background: var(--bg-active); border: 1px solid var(--border-mid); color: var(--accent); font-size: 11px; font-weight: 600; }
+  .gutter-ava.user { background: var(--user-bubble-bg); border: 1px solid var(--user-bubble-border); color: #818CF8; font-size: 11px; font-weight: 600; }
+
+  .msg-body { flex: 1; padding: 14px 20px 14px 0; }
+  .msg-name-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .msg-name { font-size: 12px; font-weight: 600; }
+  .msg-name.ai { color: var(--accent); }
+  .msg-name.user { color: #818CF8; }
+  .msg-ts { font-size: 10px; color: var(--text-muted); }
+  .msg-text { font-size: 13.5px; line-height: 1.65; color: var(--text-primary); }
+  .msg-text code {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: var(--bg-active); color: var(--accent);
+    padding: 2px 6px; border-radius: 4px;
+    border: 1px solid var(--border-mid);
+  }
+
+  .typing { display: flex; gap: 4px; align-items: center; padding-top: 2px; }
+  .typing-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); opacity: .4; animation: blink 1.2s infinite; }
+  .typing-dot:nth-child(2) { animation-delay: .2s; }
+  .typing-dot:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,60%,100%{opacity:.4;transform:translateY(0)} 30%{opacity:1;transform:translateY(-3px)} }
+
+  /* input */
+  .input-zone {
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-panel);
+    flex-shrink: 0;
+  }
+  .input-box {
+    display: flex; align-items: flex-end; gap: 8px;
+    background: var(--bg-base); border: 1px solid var(--border-mid);
+    border-radius: var(--radius); padding: 10px 12px;
+    transition: border-color .15s;
+  }
+  .input-box:focus-within { border-color: var(--accent); }
+  .input-ta {
+    flex: 1; background: none; border: none; outline: none; resize: none;
+    color: var(--text-primary); font-family: var(--font); font-size: 13px;
+    line-height: 1.5; min-height: 20px; max-height: 100px;
+  }
+  .input-ta::placeholder { color: var(--text-muted); }
+  .btn-row { display: flex; gap: 4px; align-items: center; }
+  .ia-btn {
+    width: 28px; height: 28px; border-radius: var(--radius-sm);
+    background: none; border: 1px solid var(--border);
+    color: var(--text-muted); font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .12s;
+  }
+  .ia-btn:hover { color: var(--text-primary); border-color: var(--border-mid); }
+  .send {
+    width: 32px; height: 32px; border-radius: var(--radius-sm);
+    background: var(--accent); border: none; color: #000; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .15s; font-weight: 700;
+  }
+  .send:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .input-foot { font-size: 10.5px; color: var(--text-muted); margin-top: 7px; text-align: center; }
+  .input-foot kbd { padding: 1px 4px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 3px; font-size: 10px; }
+
+  /* ─── RIGHT ─── */
+  .right {
+    width: 260px; flex-shrink: 0;
+    background: var(--bg-panel); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent;
+  }
+  .r-section {
+    padding: 14px; border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .r-title { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  .range-block { display: flex; flex-direction: column; gap: 4px; }
+  .range-row { display: flex; justify-content: space-between; font-size: 11.5px; }
+  .range-row span { color: var(--text-secondary); }
+  .range-row strong { color: var(--accent); font-weight: 500; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 2px; border-radius: 1px; cursor: pointer; outline: none;
+    background: linear-gradient(to right, var(--accent) 70%, var(--border-mid) 70%);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--bg-panel); border: 2px solid var(--accent); cursor: pointer;
+  }
+
+  .prov-list { display: flex; flex-direction: column; gap: 3px; }
+  .prov-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: var(--radius-sm);
+    font-size: 11.5px; color: var(--text-secondary);
+    cursor: pointer; transition: all .12s;
+    border: 1px solid transparent;
+  }
+  .prov-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .prov-item.sel { color: var(--accent); border-color: rgba(6,182,212,0.2); background: var(--accent-dim); }
+  .prov-led { width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+  .prov-item.sel .prov-led { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+  .prov-tag { margin-left: auto; font-size: 9px; padding: 1px 4px; background: rgba(16,185,129,0.1); color: #34D399; border-radius: 3px; }
+
+  .sys-ta {
+    background: var(--bg-base); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 8px 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-secondary); width: 100%; outline: none; resize: none; min-height: 72px; line-height: 1.5;
+  }
+  .sys-ta::placeholder { color: var(--text-muted); }
+  .sys-ta:focus { border-color: var(--accent); color: var(--text-primary); }
+
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
+  .stat-row span { font-size: 11px; color: var(--text-muted); }
+  .stat-row strong { font-size: 12px; color: var(--text-primary); font-weight: 500; }
+  .stat-row strong.hi { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="logo">
+        <div class="logo-mark"><div class="logo-ring"></div></div>
+        <div class="logo-name">Pulsar<em>AI</em></div>
+      </div>
+      <a class="new-btn" href="#">
+        <div class="new-btn-icon">+</div>
+        Новый чат
+      </a>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-label">Сегодня</div>
+        <div class="nav-item active">Анализ кода на Python</div>
+        <div class="nav-item">Создание скрипта для парсинга</div>
+        <div class="nav-item">Объяснение алгоритмов</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Вчера</div>
+        <div class="nav-item">Написание технического задания</div>
+        <div class="nav-item">Вопросы по FastAPI</div>
+        <div class="nav-item">Vue 3 Composition API</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Ранее</div>
+        <div class="nav-item">Docker настройка</div>
+        <div class="nav-item">Pydantic v2 миграция</div>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="nav-label">Режим чата</div>
+      <div class="mode-row active"><div class="mode-indicator"></div> Контекстный</div>
+      <div class="mode-row"><div class="mode-indicator"></div> Без контекста</div>
+      <div class="mode-row"><div class="mode-indicator"></div> Скрипт-режим</div>
+      <div class="user-row">
+        <div class="user-ava">U</div>
+        <div class="user-meta"><div class="n">Пользователь</div><div class="p">Free · 0 запросов</div></div>
+        <div class="cfg-btn">⚙</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CHAT -->
+  <main class="main">
+    <div class="header">
+      <div style="flex:1">
+        <div class="header-title">Анализ кода на Python</div>
+        <div class="header-sub">8 сообщений · Контекстный режим</div>
+      </div>
+      <div class="pill online"><span class="pill-dot"></span>Онлайн</div>
+      <div class="pill">Qwen3-235B</div>
+      <button class="hdr-btn">⬇</button>
+      <button class="hdr-btn">⋯</button>
+    </div>
+
+    <div class="strip">
+      <div class="strip-item"><strong>T</strong> 0.7</div>
+      <div class="strip-item"><strong>Tokens</strong> 4096</div>
+      <div class="strip-item"><strong>Top-p</strong> 0.9</div>
+      <div class="strip-item"><strong>Context</strong> 8</div>
+      <div class="strip-item"><strong>Stream</strong> on</div>
+      <div class="strip-item"><strong>Provider</strong> OpenRouter</div>
+    </div>
+
+    <div class="messages">
+      <div class="msg-group ai">
+        <div class="msg-gutter"><div class="gutter-ava ai">PA</div></div>
+        <div class="msg-body">
+          <div class="msg-name-row"><span class="msg-name ai">PulsarAI</span><span class="msg-ts">14:22</span></div>
+          <div class="msg-text">Привет! Я готов помочь с анализом вашего кода. Поделитесь фрагментом — и я найду потенциальные проблемы, предложу улучшения по паттернам SOLID и PEP8.</div>
+        </div>
+      </div>
+      <div class="msg-group user">
+        <div class="msg-gutter"><div class="gutter-ava user">U</div></div>
+        <div class="msg-body">
+          <div class="msg-name-row"><span class="msg-name user">Вы</span><span class="msg-ts">14:23</span></div>
+          <div class="msg-text">Можешь объяснить как работает <code>async/await</code> в Python? И как правильно использовать его с FastAPI?</div>
+        </div>
+      </div>
+      <div class="msg-group ai">
+        <div class="msg-gutter"><div class="gutter-ava ai">PA</div></div>
+        <div class="msg-body">
+          <div class="msg-name-row"><span class="msg-name ai">PulsarAI</span><span class="msg-ts">14:23</span></div>
+          <div class="msg-text"><code>async/await</code> — это синтаксис для написания асинхронного кода в Python. В основе лежит event loop из модуля <code>asyncio</code>.<br><br>В FastAPI почти все эндпоинты определяются как <code>async def</code> — это позволяет обрабатывать тысячи запросов одновременно без блокировки потока.</div>
+        </div>
+      </div>
+      <div class="msg-group user">
+        <div class="msg-gutter"><div class="gutter-ava user">U</div></div>
+        <div class="msg-body">
+          <div class="msg-name-row"><span class="msg-name user">Вы</span><span class="msg-ts">14:24</span></div>
+          <div class="msg-text">Да, покажи пример пожалуйста</div>
+        </div>
+      </div>
+      <div class="msg-group ai">
+        <div class="msg-gutter"><div class="gutter-ava ai">PA</div></div>
+        <div class="msg-body">
+          <div class="msg-name-row"><span class="msg-name ai">PulsarAI</span><span class="msg-ts">14:24</span></div>
+          <div class="msg-text">
+            Конечно! Вот сравнение:<br><br>
+            <strong>Синхронный:</strong> <code>def get_data(): time.sleep(1); return data</code><br><br>
+            <strong>Асинхронный:</strong> <code>async def get_data(): await asyncio.sleep(1); return data</code><br><br>
+            Ключевое отличие: во время <code>await</code> event loop может обрабатывать другие запросы.
+          </div>
+        </div>
+      </div>
+      <div class="msg-group ai">
+        <div class="msg-gutter"><div class="gutter-ava ai">PA</div></div>
+        <div class="msg-body">
+          <div class="msg-name-row"><span class="msg-name ai">PulsarAI</span><span class="msg-ts">14:24</span></div>
+          <div class="msg-text"><div class="typing"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-zone">
+      <div class="input-box">
+        <textarea class="input-ta" placeholder="Напишите сообщение..." rows="1"></textarea>
+        <div class="btn-row">
+          <button class="ia-btn">📎</button>
+          <button class="send">↑</button>
+        </div>
+      </div>
+      <div class="input-foot"><kbd>Enter</kbd> отправить · <kbd>Shift+Enter</kbd> новая строка</div>
+    </div>
+  </main>
+
+  <!-- RIGHT -->
+  <aside class="right">
+    <div class="r-section">
+      <div class="r-title">Параметры</div>
+      <div class="range-block">
+        <div class="range-row"><span>Температура</span><strong>0.7</strong></div>
+        <input type="range" min="0" max="2" step="0.1" value="0.7">
+      </div>
+      <div class="range-block">
+        <div class="range-row"><span>Max tokens</span><strong>4096</strong></div>
+        <input type="range" min="256" max="8192" step="256" value="4096">
+      </div>
+      <div class="range-block">
+        <div class="range-row"><span>Top-p</span><strong>0.9</strong></div>
+        <input type="range" min="0" max="1" step="0.05" value="0.9">
+      </div>
+    </div>
+
+    <div class="r-section">
+      <div class="r-title">Провайдер</div>
+      <div class="prov-list">
+        <div class="prov-item sel"><div class="prov-led"></div>OpenRouter / Qwen3<span class="prov-tag">FREE</span></div>
+        <div class="prov-item"><div class="prov-led"></div>OpenRouter / LLaMA 3.3<span class="prov-tag">FREE</span></div>
+        <div class="prov-item"><div class="prov-led"></div>OpenAI / GPT-4o</div>
+        <div class="prov-item"><div class="prov-led"></div>GigaChat</div>
+        <div class="prov-item"><div class="prov-led"></div>YandexGPT</div>
+        <div class="prov-item"><div class="prov-led"></div>Gemini 2.0</div>
+      </div>
+    </div>
+
+    <div class="r-section">
+      <div class="r-title">Системный промпт</div>
+      <textarea class="sys-ta" placeholder="Введите системный промпт...">Ты опытный senior Python-разработчик. Отвечай чётко и по делу.</textarea>
+    </div>
+
+    <div class="r-section">
+      <div class="r-title">Сессия</div>
+      <div class="stat-row"><span>Сообщений</span><strong class="hi">8</strong></div>
+      <div class="stat-row"><span>Токенов</span><strong class="hi">2 148</strong></div>
+      <div class="stat-row"><span>Avg latency</span><strong>0.43s</strong></div>
+      <div class="stat-row"><span>Стоимость</span><strong>$0.00</strong></div>
+      <div class="stat-row"><span>Модель</span><strong>qwen3-235b</strong></div>
+    </div>
+  </aside>
+
+</div>
+</body>
+</html>

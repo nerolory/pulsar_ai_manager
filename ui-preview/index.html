@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PulsarAI — UI Gallery</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0a0a0f; color: #f1f1f5; padding: 32px 40px; }
+  h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+  h1 span { background: linear-gradient(90deg, #6366F1, #8B5CF6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .sub { font-size: 14px; color: #6b6b8a; margin-bottom: 40px; }
+
+  section { margin-bottom: 48px; }
+  h2 { font-size: 16px; font-weight: 700; color: #9d9db8; margin-bottom: 16px; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+
+  .ui-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .ui-card {
+    border-radius: 12px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: all .2s; cursor: pointer;
+    text-decoration: none;
+    display: block;
+  }
+  .ui-card:hover { border-color: rgba(99,102,241,0.4); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,0.15); }
+  .ui-thumb {
+    height: 180px; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; position: relative; overflow: hidden;
+  }
+  .ui-thumb iframe { width: 1280px; height: 720px; border: none; transform-origin: top left; pointer-events: none; }
+  .ui-info { padding: 12px 14px; background: rgba(255,255,255,0.03); border-top: 1px solid rgba(255,255,255,0.06); }
+  .ui-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .ui-desc { font-size: 11px; color: #6b6b8a; }
+  .ui-open { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #818CF8; margin-top: 6px; text-decoration: none; transition: color .15s; }
+  .ui-open:hover { color: #a5b4fc; }
+
+  .logo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .logo-card {
+    padding: 16px 20px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.02);
+    display: flex; flex-direction: column; gap: 10px;
+    transition: all .2s;
+  }
+  .logo-card:hover { border-color: rgba(99,102,241,0.3); background: rgba(255,255,255,0.04); }
+  .logo-card img { width: 100%; height: auto; }
+  .logo-label { font-size: 11px; color: #4b4b6a; letter-spacing: 0.5px; }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; margin-left: 8px; }
+  .tag-dark { background: rgba(99,102,241,0.15); color: #818CF8; }
+  .tag-light { background: rgba(79,70,229,0.1); color: #4F46E5; }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+</style>
+</head>
+<body>
+<h1>Pulsar<span>AI</span> — UI Gallery</h1>
+<p class="sub">Выберите вариант дизайна интерфейса и логотип → нажмите Open для полного просмотра</p>
+
+<div style="margin-bottom:28px;padding:16px 20px;border-radius:12px;border:1px solid rgba(99,102,241,0.4);background:rgba(99,102,241,0.08);display:flex;align-items:center;gap:16px">
+  <div style="font-size:28px">⭐</div>
+  <div style="flex:1">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px">Полный UI — UI-01 Dark Glass (все экраны)</div>
+    <div style="font-size:12px;color:#6b6b8a">Прелоадер · Чат с Ctrl+V вставкой картинок · Настройки · Справка · Все попапы и диалоги · Человекопонятные параметры · Верифицированная LLM</div>
+  </div>
+  <a href="ui-01-dark-glass-full.html" target="_blank" style="padding:8px 16px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;text-decoration:none;font-size:13px;font-weight:500;white-space:nowrap">↗ Открыть полный UI</a>
+</div>
+
+<section>
+  <h2>Базовые UI Варианты — нажми для открытия</h2>
+  <div class="ui-grid">
+
+    <div class="ui-card">
+      <div class="ui-thumb" style="background: linear-gradient(135deg, #0a0a0f, #12122a);">
+        <div style="text-align:center; padding: 20px;">
+          <div style="font-size:32px; margin-bottom:10px;">🌌</div>
+          <div style="font-size:15px; font-weight:700; color:#818CF8;">Dark Glassmorphism</div>
+          <div style="font-size:12px; color:#4b4b6a; margin-top:6px;">Акцент: Indigo #6366F1</div>
+        </div>
+      </div>
+      <div class="ui-info">
+        <div class="ui-name">UI-01 Dark Glass <span class="tag tag-dark">DARK</span></div>
+        <div class="ui-desc">Стеклянные панели с blur, неоновые акценты, тёмный фон</div>
+        <a class="ui-open" href="ui-01-dark-glass.html" target="_blank">↗ Открыть полностью</a>
+      </div>
+    </div>
+
+    <div class="ui-card">
+      <div class="ui-thumb" style="background: linear-gradient(135deg, #0d0d0d, #111);">
+        <div style="text-align:center; padding: 20px;">
+          <div style="font-size:32px; margin-bottom:10px;">⚡</div>
+          <div style="font-size:15px; font-weight:700; color:#06B6D4;">Dark Minimal Pro</div>
+          <div style="font-size:12px; color:#4b4b6a; margin-top:6px;">Акцент: Cyan #06B6D4</div>
+        </div>
+      </div>
+      <div class="ui-info">
+        <div class="ui-name">UI-02 Dark Minimal <span class="tag tag-dark">DARK</span></div>
+        <div class="ui-desc">Плоский и плотный, как VS Code. Строгая сетка, монохром + cyan</div>
+        <a class="ui-open" href="ui-02-dark-minimal.html" target="_blank">↗ Открыть полностью</a>
+      </div>
+    </div>
+
+    <div class="ui-card">
+      <div class="ui-thumb" style="background: linear-gradient(135deg, #07070f, #12082a);">
+        <div style="text-align:center; padding: 20px;">
+          <div style="font-size:32px; margin-bottom:10px;">✦</div>
+          <div style="font-size:15px; font-weight:700; background: linear-gradient(90deg, #A78BFA, #EC4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Gradient Modern AI</div>
+          <div style="font-size:12px; color:#4b4b6a; margin-top:6px;">Акцент: Purple→Pink</div>
+        </div>
+      </div>
+      <div class="ui-info">
+        <div class="ui-name">UI-03 Gradient AI <span class="tag tag-dark">DARK</span></div>
+        <div class="ui-desc">Живые градиенты, dot-grid фон, premium AI ощущение</div>
+        <a class="ui-open" href="ui-03-gradient-ai.html" target="_blank">↗ Открыть полностью</a>
+      </div>
+    </div>
+
+    <div class="ui-card">
+      <div class="ui-thumb" style="background: linear-gradient(135deg, #f8f9fb, #f0f2f8);">
+        <div style="text-align:center; padding: 20px;">
+          <div style="font-size:32px; margin-bottom:10px;">☀️</div>
+          <div style="font-size:15px; font-weight:700; color:#4F46E5;">Light Clean SaaS</div>
+          <div style="font-size:12px; color:#9ca3af; margin-top:6px;">Акцент: Indigo #4F46E5</div>
+        </div>
+      </div>
+      <div class="ui-info">
+        <div class="ui-name">UI-04 Light SaaS <span class="tag tag-light">LIGHT</span></div>
+        <div class="ui-desc">Светлый, воздушный, как Notion/Stripe. Для встраивания в платформы</div>
+        <a class="ui-open" href="ui-04-light-saas.html" target="_blank">↗ Открыть полностью</a>
+      </div>
+    </div>
+
+    <div class="ui-card">
+      <div class="ui-thumb" style="background: linear-gradient(135deg, #030a06, #060f08);">
+        <div style="text-align:center; padding: 20px;">
+          <div style="font-size:32px; margin-bottom:10px;">💻</div>
+          <div style="font-size:15px; font-weight:700; color:#10B981; text-shadow: 0 0 12px rgba(16,185,129,0.5);">Cyberpunk Green</div>
+          <div style="font-size:12px; color:#3a5a44; margin-top:6px;">Акцент: Matrix Green #10B981</div>
+        </div>
+      </div>
+      <div class="ui-info">
+        <div class="ui-name">UI-05 Cyberpunk <span class="tag tag-dark">DARK</span></div>
+        <div class="ui-desc">Терминальная эстетика, monospace, scan-lines, хакерский стиль</div>
+        <a class="ui-open" href="ui-05-cyberpunk.html" target="_blank">↗ Открыть полностью</a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Логотипы — Тип A: Icon + Text (waveform / symbol)</h2>
+  <div class="logo-grid">
+    <div class="logo-card"><img src="logos/logo-A1-indigo.svg" alt="A1 Indigo"><div class="logo-label">A1 · Dark Glass · Indigo</div></div>
+    <div class="logo-card"><img src="logos/logo-A2-cyan.svg" alt="A2 Cyan"><div class="logo-label">A2 · Dark Minimal · Cyan</div></div>
+    <div class="logo-card"><img src="logos/logo-A3-purple.svg" alt="A3 Purple"><div class="logo-label">A3 · Gradient AI · Purple</div></div>
+    <div class="logo-card" style="background:#f8f9fb"><img src="logos/logo-A4-light.svg" alt="A4 Light"><div class="logo-label" style="color:#9ca3af">A4 · Light SaaS · Indigo</div></div>
+    <div class="logo-card"><img src="logos/logo-A5-green.svg" alt="A5 Green"><div class="logo-label">A5 · Cyberpunk · Green</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Логотипы — Тип B: Monogram (P / PA letter mark)</h2>
+  <div class="logo-grid">
+    <div class="logo-card"><img src="logos/logo-B1-indigo.svg" alt="B1 Indigo"><div class="logo-label">B1 · Dark Glass · Indigo</div></div>
+    <div class="logo-card"><img src="logos/logo-B2-cyan.svg" alt="B2 Cyan"><div class="logo-label">B2 · Dark Minimal · Cyan</div></div>
+    <div class="logo-card"><img src="logos/logo-B3-purple.svg" alt="B3 Purple"><div class="logo-label">B3 · Gradient AI · Purple</div></div>
+    <div class="logo-card" style="background:#f8f9fb"><img src="logos/logo-B4-light.svg" alt="B4 Light"><div class="logo-label" style="color:#9ca3af">B4 · Light SaaS · Indigo</div></div>
+    <div class="logo-card"><img src="logos/logo-B5-green.svg" alt="B5 Green"><div class="logo-label">B5 · Cyberpunk · Green</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Логотипы — Тип C: Geometric / Wave (pulsar emission)</h2>
+  <div class="logo-grid">
+    <div class="logo-card"><img src="logos/logo-C1-indigo.svg" alt="C1 Indigo"><div class="logo-label">C1 · Dark Glass · Indigo</div></div>
+    <div class="logo-card"><img src="logos/logo-C2-cyan.svg" alt="C2 Cyan"><div class="logo-label">C2 · Dark Minimal · Cyan</div></div>
+    <div class="logo-card"><img src="logos/logo-C3-purple.svg" alt="C3 Purple"><div class="logo-label">C3 · Gradient AI · Purple</div></div>
+    <div class="logo-card" style="background:#f8f9fb"><img src="logos/logo-C4-light.svg" alt="C4 Light"><div class="logo-label" style="color:#9ca3af">C4 · Light SaaS · Indigo</div></div>
+    <div class="logo-card"><img src="logos/logo-C5-green.svg" alt="C5 Green"><div class="logo-label">C5 · Cyberpunk · Green</div></div>
+  </div>
+</section>
+
+<div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:20px; margin-top:20px; font-size:12px; color:#3a3a5a;">
+  PulsarAI · UI Preview v0.1 · Выбери 1 UI + 1 логотип → сообщи их коды (напр. UI-03 + C3-purple)
+</div>
+</body>
+</html>

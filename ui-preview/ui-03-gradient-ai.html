@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PulsarAI — Gradient Modern AI</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --p1: #8B5CF6;
+    --p2: #6366F1;
+    --p3: #EC4899;
+    --accent: #A78BFA;
+    --accent-glow: rgba(167,139,250,0.35);
+    --bg: #07070F;
+    --bg-card: rgba(255,255,255,0.03);
+    --bg-card-h: rgba(255,255,255,0.055);
+    --border: rgba(255,255,255,0.07);
+    --border-lit: rgba(167,139,250,0.3);
+    --text: #F0EFFE;
+    --text-2: #9D9DB8;
+    --text-3: #4B4B6A;
+    --sidebar-w: 256px;
+    --rp-w: 288px;
+    --r: 14px;
+    --rs: 9px;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  html, body { height: 100%; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); }
+
+  /* gradient bg */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 70% 55% at 0% 0%, rgba(139,92,246,0.15) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 100% 100%, rgba(236,72,153,0.10) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 50% at 55% 50%, rgba(99,102,241,0.07) 0%, transparent 60%);
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: radial-gradient(rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .app { display: flex; height: 100vh; position: relative; z-index: 1; }
+
+  /* ── SIDEBAR ── */
+  .sb {
+    width: var(--sidebar-w); flex-shrink: 0;
+    display: flex; flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(139,92,246,0.04) 0%, rgba(7,7,15,0.0) 100%),
+                rgba(255,255,255,0.015);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  }
+
+  .sb-head { padding: 18px 14px 14px; border-bottom: 1px solid var(--border); }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  }
+  .logo-gem {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--p1), var(--p3));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    box-shadow: 0 0 20px rgba(139,92,246,0.5), 0 0 40px rgba(139,92,246,0.2);
+  }
+  .logo-gem::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, transparent 60%);
+  }
+  .logo-gem span { font-size: 15px; font-weight: 800; color: #fff; position: relative; z-index: 1; letter-spacing: -0.5px; }
+  .logo-txt { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+  .logo-txt b { background: linear-gradient(90deg, var(--accent), #EC4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+  .new-chat {
+    width: 100%; padding: 9px 12px;
+    background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(236,72,153,0.1));
+    border: 1px solid var(--border-lit);
+    border-radius: var(--rs);
+    color: var(--accent); font-size: 13px; font-weight: 500;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    cursor: pointer; transition: all .2s; text-decoration: none;
+  }
+  .new-chat:hover { background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(236,72,153,0.18)); box-shadow: 0 0 16px rgba(139,92,246,0.2); }
+
+  .sb-body { flex: 1; padding: 10px 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; scrollbar-width: none; }
+  .sb-body::-webkit-scrollbar { display: none; }
+
+  .sl { font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 1px; padding: 8px 6px 4px; }
+  .si {
+    padding: 7px 10px; border-radius: var(--rs);
+    font-size: 12.5px; color: var(--text-2);
+    cursor: pointer; transition: all .15s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    position: relative;
+  }
+  .si:hover { background: var(--bg-card-h); color: var(--text); }
+  .si.on {
+    background: linear-gradient(90deg, rgba(139,92,246,0.15), rgba(99,102,241,0.08));
+    color: var(--accent); border-left: 2px solid var(--p1); padding-left: 8px;
+  }
+
+  .sb-foot { border-top: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .mode-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: var(--rs);
+    font-size: 12px; color: var(--text-2); cursor: pointer; transition: all .15s;
+  }
+  .mode-item:hover { background: var(--bg-card-h); color: var(--text); }
+  .mode-item.on { color: var(--accent); }
+  .mi-dot { width: 7px; height: 7px; border-radius: 2px; background: var(--text-3); flex-shrink: 0; transition: all .15s; }
+  .mode-item.on .mi-dot { background: var(--p1); box-shadow: 0 0 6px var(--accent-glow); }
+
+  .sb-user {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 6px 2px; margin-top: 4px;
+    border-top: 1px solid var(--border);
+  }
+  .sb-ava {
+    width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--p1), var(--p3));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+  }
+  .sb-un { font-size: 12px; font-weight: 500; flex: 1; }
+  .sb-cfg { font-size: 14px; color: var(--text-3); cursor: pointer; transition: color .15s; }
+  .sb-cfg:hover { color: var(--text-2); }
+
+  /* ── MAIN ── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .topbar {
+    height: 52px; padding: 0 18px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    flex-shrink: 0;
+  }
+  .tb-title { font-size: 14px; font-weight: 600; flex: 1; }
+  .tb-sub { font-size: 11px; color: var(--text-3); }
+
+  .tag {
+    padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .tag.live { color: #34D399; border-color: rgba(52,211,153,0.25); background: rgba(52,211,153,0.07); }
+  .tag.model {
+    color: var(--accent); border-color: var(--border-lit);
+    background: rgba(139,92,246,0.08);
+  }
+  .tb-btn {
+    width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); background: none; color: var(--text-3); font-size: 13px; cursor: pointer; transition: all .15s;
+  }
+  .tb-btn:hover { color: var(--text); border-color: var(--border-lit); background: var(--bg-card-h); }
+
+  /* params */
+  .params-strip {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.01); flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+  }
+  .params-strip::-webkit-scrollbar { display: none; }
+  .ps-item {
+    padding: 7px 14px; font-size: 11px; color: var(--text-3);
+    border-right: 1px solid var(--border); white-space: nowrap; cursor: pointer; transition: all .15s;
+    display: flex; gap: 4px;
+  }
+  .ps-item:hover { color: var(--text-2); background: var(--bg-card); }
+  .ps-item b { color: var(--accent); font-weight: 500; }
+
+  /* messages */
+  .msgs { flex: 1; overflow-y: auto; padding: 28px 24px; display: flex; flex-direction: column; gap: 24px;
+    scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.2) transparent; }
+  .msgs::-webkit-scrollbar { width: 3px; }
+  .msgs::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.2); border-radius: 3px; }
+
+  .msg { display: flex; gap: 12px; }
+  .msg.u { flex-direction: row-reverse; align-self: flex-end; max-width: 70%; }
+  .msg.a { max-width: 78%; }
+
+  .mava {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 13px;
+  }
+  .mava.ai {
+    background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(99,102,241,0.2));
+    border: 1px solid var(--border-lit);
+    font-size: 14px;
+  }
+  .mava.user {
+    background: linear-gradient(135deg, var(--p1), var(--p3));
+    color: #fff; font-size: 11px; font-weight: 700;
+    box-shadow: 0 0 12px rgba(139,92,246,0.3);
+  }
+
+  .mc { display: flex; flex-direction: column; gap: 4px; }
+  .mmeta { display: flex; align-items: center; gap: 6px; }
+  .msg.u .mmeta { flex-direction: row-reverse; }
+  .mname { font-size: 11.5px; font-weight: 600; }
+  .mname.ai { color: var(--accent); }
+  .mname.user { color: #C084FC; }
+  .mts { font-size: 10px; color: var(--text-3); }
+
+  .bubble {
+    padding: 13px 16px; border-radius: var(--r); font-size: 14px; line-height: 1.65;
+    position: relative;
+  }
+  .bubble::before {
+    content: '';
+    position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
+  }
+  .msg.a .bubble {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 4px var(--r) var(--r) var(--r);
+    backdrop-filter: blur(10px);
+  }
+  .msg.u .bubble {
+    background: linear-gradient(135deg, rgba(139,92,246,0.22), rgba(236,72,153,0.12));
+    border: 1px solid rgba(139,92,246,0.3);
+    border-radius: var(--r) 4px var(--r) var(--r);
+    box-shadow: 0 4px 20px rgba(139,92,246,0.12);
+  }
+  .bubble code {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: rgba(139,92,246,0.15); color: var(--accent);
+    padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(139,92,246,0.2);
+  }
+
+  .typing-w { display: flex; gap: 5px; padding: 3px 0; }
+  .td { width: 7px; height: 7px; border-radius: 50%; animation: tp 1.2s infinite; }
+  .td:nth-child(1) { background: var(--p1); }
+  .td:nth-child(2) { background: var(--p2); animation-delay: .2s; }
+  .td:nth-child(3) { background: var(--p3); animation-delay: .4s; }
+  @keyframes tp { 0%,60%,100%{opacity:.3;transform:translateY(0)} 30%{opacity:1;transform:translateY(-5px)} }
+
+  /* input */
+  .inp-zone {
+    padding: 14px 20px 18px; flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.015);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  }
+  .inp-wrap {
+    display: flex; align-items: flex-end; gap: 10px;
+    border-radius: var(--r); padding: 12px 14px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    transition: border-color .2s, box-shadow .2s;
+    position: relative; overflow: hidden;
+  }
+  .inp-wrap::before {
+    content: '';
+    position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, rgba(236,72,153,0.03) 100%);
+  }
+  .inp-wrap:focus-within {
+    border-color: var(--border-lit);
+    box-shadow: 0 0 0 3px rgba(139,92,246,0.08), 0 0 20px rgba(139,92,246,0.05);
+  }
+  .inp-ta {
+    flex: 1; background: none; border: none; outline: none; resize: none;
+    color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.5;
+    min-height: 20px; max-height: 120px; position: relative; z-index: 1;
+  }
+  .inp-ta::placeholder { color: var(--text-3); }
+  .inp-acts { display: flex; gap: 6px; align-items: center; position: relative; z-index: 1; }
+  .att {
+    width: 30px; height: 30px; border-radius: 8px; background: none;
+    border: 1px solid var(--border); color: var(--text-3); font-size: 13px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s;
+  }
+  .att:hover { color: var(--text); border-color: var(--border-lit); }
+  .snd {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--p1), var(--p3));
+    border: none; color: #fff; font-size: 15px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .2s;
+    box-shadow: 0 2px 14px rgba(139,92,246,0.5);
+  }
+  .snd:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(139,92,246,0.65); }
+  .inp-hint { font-size: 11px; color: var(--text-3); margin-top: 8px; text-align: center; }
+  .inp-hint kbd { padding: 1px 4px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 3px; font-size: 10px; }
+
+  /* ── RIGHT PANEL ── */
+  .rp {
+    width: var(--rp-w); flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    background: rgba(255,255,255,0.015);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    display: flex; flex-direction: column; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.15) transparent;
+  }
+  .rp-block { padding: 16px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px; }
+  .rp-t { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 1.2px; }
+
+  .sl-g { display: flex; flex-direction: column; gap: 6px; }
+  .sl-r { display: flex; justify-content: space-between; font-size: 12px; }
+  .sl-r span { color: var(--text-2); }
+  .sl-r b { color: var(--accent); font-weight: 600; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 3px; border-radius: 2px;
+    background: linear-gradient(to right, var(--p1) 65%, rgba(255,255,255,0.08) 65%);
+    outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg);
+    box-shadow: 0 0 8px var(--accent-glow); cursor: pointer;
+  }
+
+  .prov-g { display: flex; flex-direction: column; gap: 4px; }
+  .prov-i {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: var(--rs);
+    font-size: 12px; color: var(--text-2);
+    cursor: pointer; transition: all .15s; border: 1px solid transparent;
+  }
+  .prov-i:hover { background: var(--bg-card-h); color: var(--text); }
+  .prov-i.sel {
+    color: var(--accent); border-color: rgba(139,92,246,0.25);
+    background: rgba(139,92,246,0.08);
+  }
+  .prov-led { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); flex-shrink: 0; }
+  .prov-i.sel .prov-led { background: var(--p1); box-shadow: 0 0 6px var(--accent-glow); }
+  .free-tag { margin-left: auto; font-size: 9px; padding: 1px 5px; background: rgba(52,211,153,0.1); color: #34D399; border-radius: 3px; }
+
+  .sys-ta {
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--rs);
+    padding: 10px; font-family: 'Inter', sans-serif; font-size: 12px;
+    color: var(--text-2); width: 100%; outline: none; resize: none; min-height: 78px; line-height: 1.5;
+  }
+  .sys-ta::placeholder { color: var(--text-3); }
+  .sys-ta:focus { border-color: var(--border-lit); color: var(--text); }
+
+  .stats-g { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sc {
+    padding: 10px; border-radius: var(--rs);
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .sv { font-size: 18px; font-weight: 700; background: linear-gradient(90deg, var(--accent), var(--p3)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .sk { font-size: 10px; color: var(--text-3); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sb">
+    <div class="sb-head">
+      <div class="logo">
+        <div class="logo-gem"><span>P</span></div>
+        <div class="logo-txt">Pulsar<b>AI</b></div>
+      </div>
+      <a class="new-chat" href="#">✦ Новый чат</a>
+    </div>
+    <div class="sb-body">
+      <div class="sl">Сегодня</div>
+      <div class="si on">Анализ кода на Python</div>
+      <div class="si">Создание скрипта для парсинга</div>
+      <div class="si">Объяснение алгоритмов</div>
+      <div class="sl">Вчера</div>
+      <div class="si">Написание технического задания</div>
+      <div class="si">Вопросы по FastAPI</div>
+      <div class="si">Vue 3 Composition API</div>
+      <div class="sl">Ранее</div>
+      <div class="si">Docker настройка</div>
+      <div class="si">Pydantic v2 миграция</div>
+    </div>
+    <div class="sb-foot">
+      <div class="sl" style="padding-top:4px">Режим</div>
+      <div class="mode-item on"><div class="mi-dot"></div>Контекстный</div>
+      <div class="mode-item"><div class="mi-dot"></div>Без контекста</div>
+      <div class="mode-item"><div class="mi-dot"></div>Скрипт-режим</div>
+      <div class="sb-user">
+        <div class="sb-ava">U</div>
+        <div class="sb-un">Пользователь</div>
+        <div class="sb-cfg">⚙</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div style="flex:1">
+        <div class="tb-title">Анализ кода на Python</div>
+        <div class="tb-sub">Контекстный · 8 сообщений</div>
+      </div>
+      <div class="tag live">● Онлайн</div>
+      <div class="tag model">✦ Qwen3-235B</div>
+      <button class="tb-btn">⬇</button>
+      <button class="tb-btn">🗑</button>
+    </div>
+
+    <div class="params-strip">
+      <div class="ps-item"><b>T</b> 0.7</div>
+      <div class="ps-item"><b>Tokens</b> 4096</div>
+      <div class="ps-item"><b>Top-p</b> 0.9</div>
+      <div class="ps-item"><b>Context</b> 8</div>
+      <div class="ps-item"><b>Stream</b> on</div>
+    </div>
+
+    <div class="msgs">
+      <div class="msg a">
+        <div class="mava ai">✦</div>
+        <div class="mc">
+          <div class="mmeta"><span class="mname ai">PulsarAI</span><span class="mts">14:22</span></div>
+          <div class="bubble">Привет! Я готов помочь с анализом вашего кода. Поделитесь фрагментом — найду потенциальные проблемы, предложу улучшения по паттернам SOLID и PEP8.</div>
+        </div>
+      </div>
+      <div class="msg u">
+        <div class="mava user">U</div>
+        <div class="mc">
+          <div class="mmeta"><span class="mname user">Вы</span><span class="mts">14:23</span></div>
+          <div class="bubble">Как работает <code>async/await</code> в Python и как использовать с FastAPI?</div>
+        </div>
+      </div>
+      <div class="msg a">
+        <div class="mava ai">✦</div>
+        <div class="mc">
+          <div class="mmeta"><span class="mname ai">PulsarAI</span><span class="mts">14:23</span></div>
+          <div class="bubble"><code>async/await</code> — синтаксис для асинхронного кода. В основе event loop из <code>asyncio</code>.<br><br>В FastAPI эндпоинты определяются как <code>async def</code> — это позволяет обрабатывать тысячи запросов без блокировки потока. Показать пример?</div>
+        </div>
+      </div>
+      <div class="msg u">
+        <div class="mava user">U</div>
+        <div class="mc">
+          <div class="mmeta"><span class="mname user">Вы</span><span class="mts">14:24</span></div>
+          <div class="bubble">Да, покажи пример пожалуйста</div>
+        </div>
+      </div>
+      <div class="msg a">
+        <div class="mava ai">✦</div>
+        <div class="mc">
+          <div class="mmeta"><span class="mname ai">PulsarAI</span><span class="mts">14:24</span></div>
+          <div class="bubble">
+            <strong>Синхронный:</strong><br>
+            <code>def get_data(): time.sleep(1); return data</code><br><br>
+            <strong>Асинхронный (FastAPI):</strong><br>
+            <code>async def get_data(): await asyncio.sleep(1); return data</code><br><br>
+            Во время <code>await</code> event loop обрабатывает другие запросы — критично для I/O операций.
+          </div>
+        </div>
+      </div>
+      <div class="msg a">
+        <div class="mava ai">✦</div>
+        <div class="mc">
+          <div class="mmeta"><span class="mname ai">PulsarAI</span><span class="mts">14:24</span></div>
+          <div class="bubble"><div class="typing-w"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="inp-zone">
+      <div class="inp-wrap">
+        <textarea class="inp-ta" placeholder="Напишите сообщение..." rows="1"></textarea>
+        <div class="inp-acts">
+          <button class="att">📎</button>
+          <button class="snd">↑</button>
+        </div>
+      </div>
+      <div class="inp-hint"><kbd>Enter</kbd> отправить · <kbd>Shift+Enter</kbd> новая строка</div>
+    </div>
+  </main>
+
+  <aside class="rp">
+    <div class="rp-block">
+      <div class="rp-t">Параметры</div>
+      <div class="sl-g">
+        <div class="sl-r"><span>Температура</span><b>0.7</b></div>
+        <input type="range" min="0" max="2" step="0.1" value="0.7">
+      </div>
+      <div class="sl-g">
+        <div class="sl-r"><span>Max tokens</span><b>4096</b></div>
+        <input type="range" min="256" max="8192" step="256" value="4096">
+      </div>
+      <div class="sl-g">
+        <div class="sl-r"><span>Top-p</span><b>0.9</b></div>
+        <input type="range" min="0" max="1" step="0.05" value="0.9">
+      </div>
+    </div>
+    <div class="rp-block">
+      <div class="rp-t">Провайдер</div>
+      <div class="prov-g">
+        <div class="prov-i sel"><div class="prov-led"></div>OpenRouter / Qwen3<span class="free-tag">FREE</span></div>
+        <div class="prov-i"><div class="prov-led"></div>OpenRouter / LLaMA 3.3<span class="free-tag">FREE</span></div>
+        <div class="prov-i"><div class="prov-led"></div>OpenAI / GPT-4o</div>
+        <div class="prov-i"><div class="prov-led"></div>GigaChat</div>
+        <div class="prov-i"><div class="prov-led"></div>YandexGPT</div>
+        <div class="prov-i"><div class="prov-led"></div>Gemini 2.0</div>
+      </div>
+    </div>
+    <div class="rp-block">
+      <div class="rp-t">Системный промпт</div>
+      <textarea class="sys-ta" placeholder="Введите системный промпт...">Ты опытный senior Python-разработчик. Отвечай чётко и по делу.</textarea>
+    </div>
+    <div class="rp-block">
+      <div class="rp-t">Статистика</div>
+      <div class="stats-g">
+        <div class="sc"><div class="sv">8</div><div class="sk">Сообщений</div></div>
+        <div class="sc"><div class="sv">2.1k</div><div class="sk">Токенов</div></div>
+        <div class="sc"><div class="sv">0.4s</div><div class="sk">Латентность</div></div>
+        <div class="sc"><div class="sv">$0.00</div><div class="sk">Стоимость</div></div>
+      </div>
+    </div>
+  </aside>
+
+</div>
+</body>
+</html>

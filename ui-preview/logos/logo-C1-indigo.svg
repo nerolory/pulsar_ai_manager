@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
+  <defs>
+    <linearGradient id="gC1" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#6366F1" stop-opacity="0"/>
+      <stop offset="40%" stop-color="#6366F1"/>
+      <stop offset="70%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="wC1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6366F1" stop-opacity="0.3"/>
+      <stop offset="50%" stop-color="#818CF8"/>
+      <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.3"/>
+    </linearGradient>
+  </defs>
+  <!-- Wave/pulse geometric logo -->
+  <path d="M4 24 Q8 24 10 18 Q12 12 14 24 Q16 36 18 28 Q20 20 22 24 Q24 28 26 22 Q28 16 30 24 Q32 32 34 24 Q36 16 38 24" 
+        stroke="url(#gC1)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Glow dot at peak -->
+  <circle cx="14" cy="24" r="3" fill="#6366F1" fill-opacity="0.3"/>
+  <circle cx="14" cy="24" r="1.5" fill="#818CF8"/>
+  <!-- Text -->
+  <text x="50" y="29" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="#F1F1F5" letter-spacing="-0.5">Pulsar</text>
+  <text x="117" y="29" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="#818CF8" letter-spacing="-0.5">AI</text>
+</svg>
