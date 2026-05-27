@@ -1,0 +1,36 @@
+/* Light Warm theme preview styles */
+.theme-preview--light-warm {
+  background: #FFFBF5;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+}
+
+.theme-preview--light-warm .tp-sidebar {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.theme-preview--light-warm .tp-line {
+  background: #A8A29E;
+}
+
+.theme-preview--light-warm .tp-line--active {
+  background: #F59E0B;
+}
+
+.theme-preview--light-warm .tp-bubble--ai {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.10);
+}
+
+.theme-preview--light-warm .tp-bubble--user {
+  background: rgba(217, 119, 6, 0.10);
+  border-color: rgba(217, 119, 6, 0.30);
+}
+
+.theme-preview--light-warm .tp-dot {
+  background: #F59E0B;
+}
+
+.theme-preview--light-warm .tp-input {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.10);
+}

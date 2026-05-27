@@ -1,0 +1,36 @@
+/* Steampunk theme preview styles */
+.theme-preview--steampunk {
+  background: #E8DFC0;
+  border: 1px solid rgba(101, 67, 33, 0.35);
+}
+
+.theme-preview--steampunk .tp-sidebar {
+  background: rgba(101, 67, 33, 0.12);
+}
+
+.theme-preview--steampunk .tp-line {
+  background: #8B6347;
+}
+
+.theme-preview--steampunk .tp-line--active {
+  background: #CD9B5A;
+}
+
+.theme-preview--steampunk .tp-bubble--ai {
+  background: rgba(101, 67, 33, 0.08);
+  border-color: rgba(101, 67, 33, 0.35);
+}
+
+.theme-preview--steampunk .tp-bubble--user {
+  background: rgba(184, 115, 51, 0.15);
+  border-color: rgba(184, 115, 51, 0.50);
+}
+
+.theme-preview--steampunk .tp-dot {
+  background: #CD9B5A;
+}
+
+.theme-preview--steampunk .tp-input {
+  background: rgba(101, 67, 33, 0.08);
+  border-color: rgba(101, 67, 33, 0.35);
+}

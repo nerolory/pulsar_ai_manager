@@ -1,0 +1,36 @@
+/* Ocean Dark theme preview styles */
+.theme-preview--ocean-dark {
+  background: #04091a;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.theme-preview--ocean-dark .tp-sidebar {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.theme-preview--ocean-dark .tp-line {
+  background: #334E68;
+}
+
+.theme-preview--ocean-dark .tp-line--active {
+  background: #38BDF8;
+}
+
+.theme-preview--ocean-dark .tp-bubble--ai {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.theme-preview--ocean-dark .tp-bubble--user {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: rgba(14, 165, 233, 0.40);
+}
+
+.theme-preview--ocean-dark .tp-dot {
+  background: #38BDF8;
+}
+
+.theme-preview--ocean-dark .tp-input {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.10);
+}

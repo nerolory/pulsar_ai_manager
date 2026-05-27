@@ -1,0 +1,151 @@
+// ═══════════════════════════════════════════════════════════════
+//  STEAMPUNK THEME — pixel-perfect port of pulsar-steampunk
+// ═══════════════════════════════════════════════════════════════
+@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=Cinzel:wght@500;700&family=Cormorant+Garamond:wght@500;600;700&family=Crimson+Text:wght@400;600&family=Special+Elite&display=swap');
+
+// ── CSS Variables (from prototype variables.css) ────────────────
+[data-theme="steampunk"] {
+  // Бумага / фон
+  --paper-0: #f3e8c8;
+  --paper-1: #e8dcc0;
+  --paper-2: #d9c89c;
+  --paper-3: #c9b582;
+  --paper-edge: #b8a06a;
+
+  // Дерево / рамы
+  --wood-1: #4a2c18;
+  --wood-2: #6b4423;
+  --wood-3: #8b5a2b;
+  --wood-highlight: #b07a3f;
+
+  // Латунь / медь
+  --brass-1: #5a3a18;
+  --brass-2: #8b6332;
+  --brass-3: #b8863c;
+  --brass-4: #d4a04a;
+  --brass-5: #f0d78c;
+  --copper-1: #6b3a1a;
+  --copper-2: #9b5028;
+  --copper-3: #c87038;
+
+  // Текст
+  --ink-1: #2a1a0a;
+  --ink-2: #3d2817;
+  --ink-3: #5c4023;
+  --ink-faded: #806244;
+  --ink-label: #6b4f30;
+
+  // Акценты
+  --wax-red: #8b2820;
+  --wax-red-bright: #b8392a;
+  --verdigris: #4a7c5e;
+  --verdigris-2: #6a9b7e;
+
+  // Линии
+  --rule-dark: #5c4023;
+  --rule-mid: #8b6332;
+  --rule-light: #b8a06a;
+
+  // Тени
+  --shadow-deep: 0 8px 24px rgba(42, 26, 10, 0.45);
+  --shadow-soft: 0 2px 8px rgba(42, 26, 10, 0.25);
+  --shadow-inset: inset 0 2px 6px rgba(42, 26, 10, 0.35);
+
+  // Размеры
+  --radius-sm: 3px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --titlebar-h: 36px;
+  --statusbar-h: 28px;
+
+  // Шрифты
+  --font-display: 'IM Fell English SC', 'Cinzel', Georgia, serif;
+  --font-serif: 'IM Fell English', 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'Crimson Text', 'Lora', Georgia, serif;
+  --font-mono: 'Special Elite', 'Courier New', monospace;
+
+  // Текстуры (inline gradients)
+  --tex-paper:
+    radial-gradient(ellipse at 20% 10%, rgba(184,138,60,0.18), transparent 50%),
+    radial-gradient(ellipse at 80% 90%, rgba(107,68,35,0.22), transparent 55%),
+    radial-gradient(ellipse at 50% 50%, rgba(243,232,200,0.0), rgba(184,160,106,0.20)),
+    repeating-linear-gradient(0deg, rgba(107,68,35,0.04) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(107,68,35,0.03) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #f3e8c8, #e8dcc0 40%, #d9c89c);
+
+  --tex-wood:
+    repeating-linear-gradient(90deg,
+      rgba(0,0,0,0.18) 0 1px, transparent 1px 3px,
+      rgba(255,220,160,0.06) 3px 4px, transparent 4px 7px),
+    repeating-linear-gradient(90deg,
+      rgba(0,0,0,0.10) 0 2px, transparent 2px 9px),
+    linear-gradient(180deg, #8b5a2b 0%, #6b4423 50%, #4a2c18 100%);
+
+  --tex-brass:
+    radial-gradient(ellipse at 30% 30%, #f0d78c, transparent 55%),
+    radial-gradient(ellipse at 70% 70%, #5a3a18, transparent 60%),
+    linear-gradient(135deg, #d4a04a, #8b6332 50%, #b8863c);
+
+  --tex-brass-flat:
+    linear-gradient(180deg, #d4a04a 0%, #b8863c 45%, #8b6332 100%);
+}
+
+// ── Keyframes (from prototype animations.css) ───────────────────
+@keyframes gear-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes gear-spin-rev {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+@keyframes brass-shine {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.15); }
+}
+@keyframes telegraph-bar {
+  0%   { width: 0%; }
+  100% { width: 100%; }
+}
+@keyframes ink-fade-in {
+  from { opacity: 0; transform: translateY(8px); filter: blur(2px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes stamp-in {
+  0%   { opacity: 0; transform: scale(2) rotate(-8deg); }
+  60%  { opacity: 1; transform: scale(0.92) rotate(-3deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-2deg); }
+}
+
+// ── Animation utility classes ───────────────────────────────────
+.anim-spin      { animation: gear-spin     18s linear infinite; transform-origin: center; }
+.anim-spin-slow { animation: gear-spin     38s linear infinite; transform-origin: center; }
+.anim-spin-rev  { animation: gear-spin-rev 24s linear infinite; transform-origin: center; }
+.anim-fade-in   { animation: ink-fade-in 0.5s ease-out both; }
+
+// ── SVG gear fill (global, works inside <symbol>) ───────────────
+.gear-fill {
+  fill: url(#brassGrad);
+  stroke: var(--brass-1, #5a3a18);
+  stroke-width: 2;
+}
+.gear-stroke {
+  fill: none;
+  stroke: var(--brass-1, #5a3a18);
+  stroke-width: 1.5;
+}
+
+// ── Corner gear positioning (from prototype app.css) ────────────
+.corner-gear {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  pointer-events: none;
+  opacity: 0.85;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45));
+  z-index: 2;
+}
+.corner-gear.tl { top: -28px;    left: -28px; }
+.corner-gear.tr { top: -28px;    right: -28px; }
+.corner-gear.bl { bottom: -28px; left: -28px; }
+.corner-gear.br { bottom: -28px; right: -28px; }

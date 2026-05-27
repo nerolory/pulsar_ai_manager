@@ -1,6 +1,6 @@
 <template>
   <Transition name="rp">
-    <aside v-if="open" class="rp">
+    <aside v-if="open" class="rp" :class="{ open }">
       <div class="rp-header">
         <div class="rp-title">Тонкая настройка</div>
         <button class="rp-close" @click="emit('close')">✕</button>
@@ -43,13 +43,13 @@
           <Transition name="preset-dropdown">
             <div v-if="showPresets" class="preset-dropdown-list">
               <div
-                v-for="p in presets"
-                :key="p.label"
+                v-for="preset in presets"
+                :key="preset.label"
                 class="preset-item"
-                @mousedown="selectPreset(p)"
+                @mousedown="selectPreset(preset)"
               >
-                <span class="preset-icon">{{ p.icon }}</span>
-                <span class="preset-label">{{ p.label }}</span>
+                <span class="preset-icon">{{ preset.icon }}</span>
+                <span class="preset-label">{{ preset.label }}</span>
               </div>
             </div>
           </Transition>
@@ -137,15 +137,6 @@ onMounted(() => {
 }
 .rp-t { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: 1px; }
 .sys-ta-wrapper { position: relative; }
-.sys-ta {
-  width: 100%; min-height: 80px; padding: 8px 10px;
-  background: var(--bg-s); border: 1px solid var(--brd); border-radius: var(--rs);
-  color: var(--t1); font-size: 12px; font-family: inherit; resize: vertical;
-  transition: border-color .15s;
-}
-.sys-ta:focus { border-color: var(--brd-a); outline: none; }
-.sys-ta::placeholder { color: var(--t3); }
-
 .preset-dropdown-list {
   position: absolute; top: 100%; left: 0; right: 0;
   z-index: 100; margin-top: 4px;
@@ -209,4 +200,110 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 
 .rp-enter-active, .rp-leave-active { transition: width .2s ease, opacity .2s ease; overflow: hidden; }
 .rp-enter-from, .rp-leave-to { width: 0 !important; opacity: 0; }
+
+/* ── Responsive styles ──────────────────────────── */
+
+/* Legacy desktop / laptops (1024px - 1440px) */
+@media (max-width: 1440px) {
+  .rp { width: var(--rw); }
+}
+
+/* Tablet (768px - 1024px) - right panel as overlay */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .rp {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 100;
+    background: var(--bg-g);
+    border-left: 1px solid var(--brd);
+  }
+}
+
+/* Mobile (< 768px) - right panel as bottom sheet */
+@media (max-width: 768px) {
+  .rp {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 90vh;
+    border-left: none;
+    border-top: 1px solid var(--brd);
+    border-radius: var(--r) var(--r) 0 0;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    z-index: 9999;
+  }
+
+  .rp.open {
+    transform: translateY(0);
+  }
+
+  .rp-enter-active, .rp-leave-active {
+    transition: transform 0.3s ease;
+  }
+  .rp-enter-from, .rp-leave-to {
+    width: 100% !important;
+    opacity: 1;
+    transform: translateY(100%);
+  }
+
+  .rp-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease;
+  }
+
+  .rp-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .rp-h {
+    padding: 12px 16px;
+  }
+
+  .ctx-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .tog {
+    align-self: flex-end;
+  }
+
+  .rp-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--bg-s);
+    border: 1px solid var(--brd);
+    border-radius: var(--rs);
+    color: var(--t1);
+    font-size: 18px;
+    cursor: pointer;
+  }
+}
+
+/* Mobile landscape - smaller height */
+@media (max-width: 768px) and (orientation: landscape) {
+  .rp { height: 50vh; }
+}
+
+/* Touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .rp-row { min-height: 44px; }
+  input[type=range] { height: 44px; }
+}
 </style>

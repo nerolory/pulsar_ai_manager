@@ -7,16 +7,52 @@ backend/.env
 backend/*.egg-info/
 backend/dist/
 backend/build/
+backend/logs/
+backend/*.log
+backend/settings.yaml
 
 # Frontend
 frontend/node_modules/
 frontend/dist/
 frontend/.env
 frontend/.env.local
+frontend/.vite/
+frontend/.cache/
 
 # Desktop
 desktop/node_modules/
 desktop/dist/
+desktop/.env
+desktop/.env.local
+
+# Electron
+electron/
+dist-electron/
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Logs
+*.log
+logs/
+
+# Credentials
+credentials.json
+*.key
+*.pem
+*.crt
+
+# Theme assets (separate repo)
+pulsar-steampunk/
+
+# UI preview (separate repo)
+ui-preview/
+
+# Plans
+PLAN.md
 
 # OS
 .DS_Store

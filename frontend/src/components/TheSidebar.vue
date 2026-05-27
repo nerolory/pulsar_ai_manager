@@ -1,8 +1,9 @@
 <template>
-  <aside class="sb" :class="{ collapsed }">
+  <aside class="sb" :class="{ collapsed, open: isOpen }">
+    <div v-if="isOpen" class="sb-close" @click="toggle">✕</div>
     <div class="logo">
       <div class="logo-icon">P</div>
-      <div v-if="!collapsed" class="logo-txt">Pulsar<em>AI</em></div>
+      <div class="logo-txt">Pulsar<em>AI</em></div>
     </div>
 
     <button class="new-btn" :title="collapsed ? 'Новый чат' : ''" @click="chatStore.createChat()">
@@ -31,12 +32,12 @@
             <input
               v-if="editingId === chat.id"
               class="ci-input"
+              :ref="setRenameRef"
               v-model="editingTitle"
               @blur="commitRename"
               @keydown.enter="commitRename"
               @keydown.esc="cancelRename"
               @click.stop
-              :ref="(el) => { if (el) inputRefs.value[0] = el as HTMLInputElement }"
             />
             <span v-else class="ci-title">{{ chat.title }}</span>
             <button class="ci-del" title="Удалить чат" @click.stop="chatStore.deleteChat(chat.id)">✕</button>
@@ -58,6 +59,7 @@
             <input
               v-if="editingId === chat.id"
               class="ci-input"
+              :ref="setRenameRef"
               v-model="editingTitle"
               @blur="commitRename"
               @keydown.enter="commitRename"
@@ -89,7 +91,7 @@
       </div>
     </template> -->
 
-    <button class="cfg-btn" @click="emit('openSettings')">
+    <button class="cfg-btn" @click="toggle(); emit('openSettings')">
       <span v-if="!collapsed">⚙ Настройки</span>
       <span v-else>⚙</span>
     </button>
@@ -97,7 +99,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import type { ComponentPublicInstance } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useChatStore } from '@/stores/chat'
 
@@ -105,32 +108,41 @@ const emit = defineEmits<{ openSettings: []; collapse: [val: boolean] }>()
 const chatStore = useChatStore()
 const { activeChatId } = storeToRefs(chatStore)
 const collapsed = ref(false)
+const isOpen = ref(false)
 
 function toggle() {
-  collapsed.value = !collapsed.value
-  emit('collapse', collapsed.value)
+  if (window.innerWidth < 768) {
+    isOpen.value = !isOpen.value
+  } else {
+    collapsed.value = !collapsed.value
+    emit('collapse', collapsed.value)
+  }
 }
 
-defineExpose({ collapsed, toggle })
+defineExpose({ collapsed, isOpen, toggle })
 
 const DAY = 86_400_000
 const today = computed(() =>
-  chatStore.chats.filter((c) => Date.now() - c.createdAt < DAY),
+  chatStore.chats.filter((chat) => Date.now() - chat.createdAt < DAY),
 )
 const older = computed(() =>
-  chatStore.chats.filter((c) => Date.now() - c.createdAt >= DAY),
+  chatStore.chats.filter((chat) => Date.now() - chat.createdAt >= DAY),
 )
 
 // ── Rename ────────────────────────────────────────
 const editingId = ref<string | null>(null)
 const editingTitle = ref('')
-const inputRefs = ref<HTMLInputElement[]>([])
+const renameInput = ref<HTMLInputElement | null>(null)
+
+function setRenameRef(el: Element | ComponentPublicInstance | null) {
+  renameInput.value = el as HTMLInputElement | null
+}
 
 function handleChatClick(id: string) {
   if (editingId.value) return // input is open - ignore
   if (id === activeChatId.value) {
     // second click on active chat → start rename
-    const chat = chatStore.chats.find((c) => c.id === id)
+    const chat = chatStore.chats.find((chat) => chat.id === id)
     if (chat) startRename(id, chat.title)
   } else {
     chatStore.selectChat(id)
@@ -141,10 +153,9 @@ function startRename(id: string, title: string) {
   editingId.value = id
   editingTitle.value = title
   nextTick(() => {
-    const el = inputRefs.value[0]
-    if (el) {
-      el.focus()
-      el.select()
+    if (renameInput.value) {
+      renameInput.value.focus()
+      renameInput.value.select()
     }
   })
 }
@@ -167,6 +178,9 @@ function onGlobalClick(e: MouseEvent) {
     commitRename()
   }
 }
+
+onMounted(() => document.addEventListener('click', onGlobalClick, true))
+onUnmounted(() => document.removeEventListener('click', onGlobalClick, true))
 
 // ── Drag-and-drop reorder ─────────────────────────
 const dragId = ref<string | null>(null)
@@ -232,14 +246,16 @@ function onDropBottom(e: DragEvent) {
 .logo-txt { font-size: 14px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; }
 .logo-txt em { font-style: normal; color: var(--accent-l); }
 
+.sb.collapsed .logo-txt { display: none; }
+
 .new-btn {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 8px 12px; border-radius: var(--rs);
-  background: var(--accent-dim); border: 1px solid var(--accent-border);
-  color: var(--accent-l); font-size: 12.5px; font-weight: 500; cursor: pointer;
-  transition: all .2s; margin-bottom: 6px; width: 100%;
+  background: var(--bg-s); border: 1px solid var(--brd);
+  color: var(--t1); font-size: 12.5px; font-weight: 500; cursor: pointer;
+  transition: all .2s; margin-bottom: 6px;
 }
-.new-btn:hover { background: rgba(99,102,241,0.28); }
+.new-btn:hover { background: var(--bg-gh); border-color: var(--brd-a); }
 
 .sb-label {
   font-size: 10px; font-weight: 600; color: var(--t3);
@@ -298,5 +314,110 @@ function onDropBottom(e: DragEvent) {
   transition: all .15s; flex-shrink: 0;
 }
 .cfg-btn:hover { background: var(--bg-gh); border-color: var(--brd-a); }
-.cfg-btn--icon { padding: 8px; font-size: 16px; }
+
+/* ── Responsive styles ──────────────────────────── */
+
+/* Legacy desktop / laptops (1024px - 1440px) */
+@media (max-width: 1440px) {
+  .sb { width: var(--sw); }
+  .logo-txt { font-size: 15px; }
+  .ci-title { font-size: 12px; }
+}
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+  .sb { width: var(--sw); }
+  .logo { padding: 10px; }
+  .logo-icon { width: 32px; height: 32px; font-size: 15px; }
+  .new-btn { margin: 0 10px 10px; }
+  .chat-list { padding: 0 10px; }
+  .sb-label { padding: 10px 10px 6px; }
+  .ci { padding: 8px 10px; }
+}
+
+/* Mobile (< 768px) */
+@media (max-width: 768px) {
+  .sb {
+    width: 280px;
+    background: var(--bg-panel);
+    box-shadow: 2px 0 20px rgba(0, 0, 0, 0.4);
+  }
+
+  .sb.collapsed {
+    width: 280px;
+  }
+
+  .sb.collapsed .logo,
+  .sb.collapsed .new-btn,
+  .sb.collapsed .chat-list,
+  .sb.collapsed .sb-user {
+    display: flex;
+  }
+
+  .sb-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--brd);
+  }
+
+  .sb-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--bg-s);
+    border: 1px solid var(--brd);
+    border-radius: var(--rs);
+    color: var(--t1);
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .logo {
+    padding: 16px;
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .logo-txt {
+    display: block !important;
+    font-size: 15px;
+  }
+
+  .new-btn { margin: 0 16px 12px; }
+  .chat-list { padding: 0 16px; }
+  .ci { padding: 12px 16px; }
+  .ci-title { font-size: 14px; }
+}
+
+/* Small mobile (< 480px) */
+@media (max-width: 480px) {
+  .sb { width: 260px; }
+  .logo-txt { font-size: 15px; }
+  .ci-title { font-size: 13px; }
+}
+
+/* Mobile landscape */
+@media (max-width: 768px) and (orientation: landscape) {
+  .sb { width: 240px; }
+  .chat-list { max-height: calc(100vh - 180px); }
+}
+
+/* Touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .ci { min-height: 44px; }
+  .new-btn { min-height: 44px; }
+  .cfg-btn { min-height: 44px; }
+  .ci-del { width: 32px; height: 32px; }
+}
 </style>

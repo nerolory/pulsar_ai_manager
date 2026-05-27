@@ -14,7 +14,7 @@ renderer.code = ({ text, lang }) => {
   const highlighted = hljs.highlight(text, { language }).value
   const langLabel = language !== 'plaintext' ? `<span class="code-lang">${language}</span>` : ''
   return `<div class="code-block">
-    <div class="code-header">${langLabel}<button class="code-copy" onclick="navigator.clipboard.writeText(this.closest('.code-block').querySelector('code').innerText)">Copy</button></div>
+    <div class="code-header">${langLabel}<button class="code-copy">Copy</button></div>
     <pre><code class="hljs language-${language}">${highlighted}</code></pre>
   </div>`
 }
@@ -29,7 +29,7 @@ export function useMarkdown() {
     const raw = marked.parse(content) as string
     return DOMPurify.sanitize(raw, {
       ADD_TAGS: ['button'],
-      ADD_ATTR: ['onclick', 'class'],
+      ADD_ATTR: ['class'],
     })
   }
 

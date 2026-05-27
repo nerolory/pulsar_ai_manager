@@ -4,7 +4,7 @@ from typing import List, Optional, AsyncIterator
 from loguru import logger
 from datetime import datetime
 
-DB_PATH = Path("/app/data/chats.db")
+from app.paths import DB_PATH
 
 async def init_db() -> None:
     """Initialize database with tables and indexes"""
@@ -58,7 +58,7 @@ async def init_db() -> None:
         await db.commit()
         logger.info("Database initialized successfully")
 
-async def save_chat(chat_id: str, title: str, messages: List[dict] = []) -> None:
+async def save_chat(chat_id: str, title: str) -> None:
     """Upsert chat metadata only — messages are saved separately via add_message"""
     now = int(datetime.now().timestamp() * 1000)
     
@@ -94,8 +94,8 @@ async def update_message_content(msg_id: str, content: str) -> None:
 async def reorder_chats(ordered_ids: List[str]) -> None:
     """Update sort_order for all chats based on provided order"""
     async with aiosqlite.connect(DB_PATH) as db:
-        for idx, chat_id in enumerate(ordered_ids):
-            await db.execute("UPDATE chats SET sort_order = ? WHERE id = ?", (idx, chat_id))
+        for index, chat_id in enumerate(ordered_ids):
+            await db.execute("UPDATE chats SET sort_order = ? WHERE id = ?", (index, chat_id))
         await db.commit()
         logger.debug(f"Reordered {len(ordered_ids)} chats")
 
@@ -123,10 +123,10 @@ async def get_chat_messages(chat_id: str, limit: Optional[int] = None, before_ro
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
 
-        params: list = [chat_id]
+        query_params: list = [chat_id]
 
         if before_rowid is not None:
-            params.append(before_rowid)
+            query_params.append(before_rowid)
             if limit is not None:
                 query = """
                     SELECT * FROM (
@@ -137,7 +137,7 @@ async def get_chat_messages(chat_id: str, limit: Optional[int] = None, before_ro
                         LIMIT ?
                     ) ORDER BY rowid ASC
                 """
-                params.append(limit)
+                query_params.append(limit)
             else:
                 query = """
                     SELECT id, role, content, created_at, model, rowid
@@ -156,7 +156,7 @@ async def get_chat_messages(chat_id: str, limit: Optional[int] = None, before_ro
                         LIMIT ?
                     ) ORDER BY rowid ASC
                 """
-                params.append(limit)
+                query_params.append(limit)
             else:
                 query = """
                     SELECT id, role, content, created_at, model, rowid
@@ -165,7 +165,7 @@ async def get_chat_messages(chat_id: str, limit: Optional[int] = None, before_ro
                     ORDER BY rowid ASC
                 """
 
-        cursor = await db.execute(query, params)
+        cursor = await db.execute(query, query_params)
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
 

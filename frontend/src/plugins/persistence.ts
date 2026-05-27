@@ -28,8 +28,8 @@ export function persistencePlugin({ store }: PiniaPluginContext) {
     if (saved) {
       const parsed = JSON.parse(saved)
       store.$patch((state) => {
-        keys.forEach((k) => {
-          if (k in parsed) (state as Record<string, unknown>)[k] = parsed[k]
+        keys.forEach((key) => {
+          if (key in parsed) (state as Record<string, unknown>)[key] = parsed[key]
         })
       })
     }
@@ -38,7 +38,7 @@ export function persistencePlugin({ store }: PiniaPluginContext) {
   store.$subscribe(() => {
     try {
       const snapshot: Record<string, unknown> = {}
-      keys.forEach((k) => { snapshot[k] = (store.$state as Record<string, unknown>)[k] })
+      keys.forEach((key) => { snapshot[key] = (store.$state as Record<string, unknown>)[key] })
       localStorage.setItem(storageKey, JSON.stringify(snapshot))
     } catch { /* quota exceeded or SSR */ }
   }, { detached: true })

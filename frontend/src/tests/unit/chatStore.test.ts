@@ -70,7 +70,7 @@ describe('useChatStore', () => {
     const store = useChatStore()
     store.createChat()
     await store.sendMessage('Hello')
-    const assistant = store.messages.find((m) => m.role === 'assistant')
+    const assistant = store.messages.find((message) => message.role === 'assistant')
     expect(assistant?.content).toBe('Hello world')
     expect(store.streaming).toBe(false)
     expect(store.needsProvider).toBe(false)

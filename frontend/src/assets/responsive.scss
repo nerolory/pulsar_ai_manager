@@ -1,0 +1,112 @@
+// Responsive breakpoints and mixins
+// 4 formats: desktop-modern, desktop-legacy, tablet, mobile
+
+// Breakpoint values
+$breakpoint-xxl: 1440px;  // Modern desktop
+$breakpoint-xl: 1024px;   // Legacy desktop/laptops
+$breakpoint-md: 768px;    // Tablets
+$breakpoint-sm: 480px;    // Small phones
+
+// Modern desktop (> 1440px)
+@mixin desktop-modern {
+  @media (min-width: #{$breakpoint-xxl}) {
+    @content;
+  }
+}
+
+// Legacy desktop/laptops (1024px - 1440px)
+@mixin desktop-legacy {
+  @media (min-width: #{$breakpoint-xl}) and (max-width: #{$breakpoint-xxl - 1px}) {
+    @content;
+  }
+}
+
+// All desktop (> 1024px)
+@mixin desktop {
+  @media (min-width: #{$breakpoint-xl}) {
+    @content;
+  }
+}
+
+// Tablet (768px - 1024px)
+@mixin tablet {
+  @media (min-width: #{$breakpoint-md}) and (max-width: #{$breakpoint-xl - 1px}) {
+    @content;
+  }
+}
+
+// Mobile (< 768px)
+@mixin mobile {
+  @media (max-width: #{$breakpoint-md - 1px}) {
+    @content;
+  }
+}
+
+// Small mobile (< 480px)
+@mixin mobile-small {
+  @media (max-width: #{$breakpoint-sm - 1px}) {
+    @content;
+  }
+}
+
+// Orientation mixins
+@mixin landscape {
+  @media (orientation: landscape) {
+    @content;
+  }
+}
+
+@mixin portrait {
+  @media (orientation: portrait) {
+    @content;
+  }
+}
+
+// Combined: Mobile landscape
+@mixin mobile-landscape {
+  @media (max-width: #{$breakpoint-md - 1px}) and (orientation: landscape) {
+    @content;
+  }
+}
+
+// Combined: Tablet landscape
+@mixin tablet-landscape {
+  @media (min-width: #{$breakpoint-md}) and (max-width: #{$breakpoint-xl - 1px}) and (orientation: landscape) {
+    @content;
+  }
+}
+
+// Touch devices
+@mixin touch {
+  @media (hover: none) and (pointer: coarse) {
+    @content;
+  }
+}
+
+// High DPI / Retina
+@mixin retina {
+  @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    @content;
+  }
+}
+
+// Old monitors 4:3 aspect ratio
+@mixin aspect-4-3 {
+  @media (min-aspect-ratio: 4/3) and (max-aspect-ratio: 5/4) {
+    @content;
+  }
+}
+
+// Old monitors 5:4 aspect ratio
+@mixin aspect-5-4 {
+  @media (min-aspect-ratio: 5/4) and (max-aspect-ratio: 16/10) {
+    @content;
+  }
+}
+
+// Legacy desktop with limited height (768px-900px height)
+@mixin limited-height {
+  @media (max-height: 900px) {
+    @content;
+  }
+}

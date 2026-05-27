@@ -1,9 +1,21 @@
 export type MessageRole = 'user' | 'assistant' | 'system'
 
+export interface ContentImageUrl {
+  url: string
+}
+
+export interface ContentPart {
+  type: 'text' | 'image_url'
+  text?: string
+  image_url?: ContentImageUrl
+}
+
+export type MessageContent = string | ContentPart[]
+
 export interface ChatMessage {
   id: string
   role: MessageRole
-  content: string
+  content: MessageContent
   createdAt: number
   model?: string
   rowid?: number

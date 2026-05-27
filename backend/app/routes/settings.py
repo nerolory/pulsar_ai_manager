@@ -1,3 +1,9 @@
+"""Settings routes for LLM provider configuration and health monitoring.
+
+Provides endpoints for configuring providers, retrieving saved configurations,
+running prompt compliance tests, and checking provider health status.
+"""
+
 from fastapi import APIRouter, HTTPException
 from app.schemas import SettingsPayload, HealthResponse, PromptTestResponse
 from app.state import set_provider, get_provider
@@ -9,6 +15,17 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 
 def init_provider(provider: str, api_key: str | None, model: str | None, base_url: str | None) -> None:
+    """Initialize the active LLM provider with the given credentials.
+
+    Args:
+        provider: Provider identifier ("openrouter", "vsellm", "mock").
+        api_key: API key for the selected provider.
+        model: Model name to use.
+        base_url: Optional custom base URL.
+
+    Raises:
+        ValueError: If the provider is unknown or the API key is missing.
+    """
     if provider == "mock" or settings.mock_mode:
         from app.providers.mock import MockProvider
         set_provider(MockProvider())
@@ -35,9 +52,26 @@ def init_provider(provider: str, api_key: str | None, model: str | None, base_ur
 
 @router.post("/provider")
 async def configure_provider(payload: SettingsPayload):
+    """Configure and save the active LLM provider.
+
+    Args:
+        payload: SettingsPayload containing provider, api_key, model and base_url.
+
+    Returns:
+        dict: Status confirmation with the active provider name.
+
+    Raises:
+        HTTPException: On validation or internal errors.
+    """
     try:
-        init_provider(payload.provider, payload.api_key, payload.model, payload.base_url)
-        save_provider_config(payload.provider, payload.api_key, payload.model, payload.base_url)
+        from app.storage import load_provider_config_for
+        api_key = payload.api_key
+        if not api_key:
+            saved = load_provider_config_for(payload.provider)
+            if saved:
+                api_key = saved.get("api_key")
+        init_provider(payload.provider, api_key, payload.model, payload.base_url)
+        save_provider_config(payload.provider, api_key, payload.model, payload.base_url)
         return {"status": "ok", "provider": payload.provider}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -48,13 +82,26 @@ async def configure_provider(payload: SettingsPayload):
 
 @router.get("/provider")
 async def get_provider_config():
-    from app.storage import load_provider_config
+    """Return the active provider configuration and all saved provider configs.
+
+    Returns:
+        dict: Active provider details plus a map of all previously saved providers.
+    """
+    from app.storage import load_provider_config, load_provider_config_for, _load_yaml
     config = load_provider_config()
+    data = _load_yaml()
+    known_providers = ["openrouter", "vsellm", "openai", "mock"]
+    all_providers = {
+        provider_name: {"api_key": data[provider_name].get("api_key"), "model": data[provider_name].get("model")}
+        for provider_name in known_providers if provider_name in data
+    }
     if not config:
-        return {"provider": None, "model": None}
+        return {"provider": None, "model": None, "api_key": None, "all_providers": all_providers}
     return {
         "provider": config.get("provider"),
         "model": config.get("model"),
+        "api_key": config.get("api_key"),
+        "all_providers": all_providers,
     }
 
 
@@ -65,6 +112,14 @@ _TEST_MARKER = "YES"
 
 @router.post("/test-prompt", response_model=PromptTestResponse)
 async def test_prompt():
+    """Send a system-prompt compliance test to the active provider.
+
+    Returns:
+        PromptTestResponse: Whether the model followed the instruction and its answer.
+
+    Raises:
+        HTTPException: If no provider is configured or the test fails.
+    """
     provider = get_provider()
     if provider is None:
         raise HTTPException(status_code=503, detail="No provider configured")
@@ -95,6 +150,11 @@ async def test_prompt():
 
 @router.get("/health", response_model=HealthResponse)
 async def health():
+    """Check the health status of the currently active LLM provider.
+
+    Returns:
+        HealthResponse: Status, provider name, model and mock mode flag.
+    """
     provider = get_provider()
     if provider is None:
         return HealthResponse(status="no_provider", provider="none", mock_mode=settings.mock_mode)

@@ -14,11 +14,11 @@
       <nav class="settings-nav">
         <div class="sb-label">Разделы</div>
         <div
-          v-for="s in sections" :key="s.id"
-          class="sn-item" :class="{ on: activeSection === s.id }"
-          @click="activeSection = s.id"
+          v-for="section in sections" :key="section.id"
+          class="sn-item" :class="{ on: activeSection === section.id }"
+          @click="activeSection = section.id"
         >
-          <span class="sn-icon">{{ s.icon }}</span>{{ s.label }}
+          <span class="sn-icon">{{ section.icon }}</span>{{ section.label }}
         </div>
       </nav>
 
@@ -35,25 +35,25 @@
             </div>
             <div class="provider-list">
               <div
-                v-for="p in providers" :key="p.id"
+                v-for="provider in providers" :key="provider.id"
                 class="prov-row"
-                :class="{ connected: settingsStore.activeProvider === p.id }"
+                :class="{ connected: settingsStore.activeProvider === provider.id }"
               >
-                <div class="prov-dot" :class="{ active: settingsStore.activeProvider === p.id }" />
+                <div class="prov-dot" :class="{ active: settingsStore.activeProvider === provider.id }" />
                 <div class="prov-info">
                   <div class="prov-name">
-                    {{ p.name }}
-                    <span class="prov-badge" :class="settingsStore.activeProvider === p.id ? 'ok' : 'off'">
-                      {{ settingsStore.activeProvider === p.id ? 'ПОДКЛЮЧЁН' : 'НЕ НАСТРОЕН' }}
+                    {{ provider.name }}
+                    <span class="prov-badge" :class="settingsStore.activeProvider === provider.id ? 'ok' : 'off'">
+                      {{ settingsStore.activeProvider === provider.id ? 'ПОДКЛЮЧЁН' : 'НЕ НАСТРОЕН' }}
                     </span>
                   </div>
-                  <div class="prov-desc">{{ p.desc }}</div>
+                  <div class="prov-desc">{{ provider.desc }}</div>
                 </div>
                 <button
-                  class="btn" :class="settingsStore.activeProvider === p.id ? 'btn-secondary' : 'btn-primary'"
-                  @click="openSetup(p.id)"
+                  class="btn" :class="settingsStore.activeProvider === provider.id ? 'btn-secondary' : 'btn-primary'"
+                  @click="openSetup(provider.id)"
                 >
-                  {{ settingsStore.activeProvider === p.id ? 'Изменить' : 'Настроить' }}
+                  {{ settingsStore.activeProvider === provider.id ? 'Изменить' : 'Настроить' }}
                 </button>
               </div>
             </div>
@@ -81,9 +81,47 @@
           </div>
         </template>
 
+        <!-- Appearance -->
+        <template v-else-if="activeSection === 'appearance'">
+          <div class="s-section">
+            <div class="s-section-title">🎨 Тема оформления</div>
+            <div class="theme-grid">
+              <div
+                v-for="theme in themes"
+                :key="theme.id"
+                class="theme-card"
+                :class="{ active: currentTheme.id === theme.id }"
+                @click="setTheme(theme.id)"
+              >
+                <div class="theme-preview" :class="`theme-preview--${theme.id}`">
+                  <div class="tp-sidebar">
+                    <div class="tp-line" />
+                    <div class="tp-line tp-line--active" />
+                    <div class="tp-line" />
+                  </div>
+                  <div class="tp-main">
+                    <div class="tp-bubble tp-bubble--ai">
+                      <div class="tp-dot" />
+                    </div>
+                    <div class="tp-bubble tp-bubble--user">
+                      <div class="tp-dot" />
+                    </div>
+                    <div class="tp-input" />
+                  </div>
+                </div>
+                <div class="theme-meta">
+                  <div class="theme-name">{{ theme.name }}</div>
+                  <div class="theme-desc">{{ theme.description }}</div>
+                </div>
+                <div v-if="currentTheme.id === theme.id" class="theme-check">✓</div>
+              </div>
+            </div>
+          </div>
+        </template>
+
         <template v-else>
           <div class="s-section">
-            <div class="s-section-title">{{ sections.find(s => s.id === activeSection)?.icon }} {{ sections.find(s => s.id === activeSection)?.label }}</div>
+            <div class="s-section-title">{{ activeSectionMeta?.icon }} {{ activeSectionMeta?.label }}</div>
             <p class="coming-soon">Раздел в разработке</p>
           </div>
         </template>
@@ -97,7 +135,7 @@
       <div v-if="setupModal.open" class="overlay" @click.self="setupModal.open = false">
         <div class="modal">
           <div class="modal-header">
-            <div class="modal-title">Настройка {{ providers.find(p => p.id === setupModal.provider)?.name }}</div>
+            <div class="modal-title">Настройка {{ providers.find(provider => provider.id === setupModal.provider)?.name }}</div>
             <button class="modal-close" @click="setupModal.open = false">✕</button>
           </div>
           <div class="modal-body">
@@ -107,7 +145,7 @@
                 v-model="setupModal.apiKey"
                 class="field-input"
                 type="password"
-                :placeholder="providers.find(p => p.id === setupModal.provider)?.keyPlaceholder ?? 'sk-...'"
+                :placeholder="providers.find(provider => provider.id === setupModal.provider)?.keyPlaceholder ?? 'sk-...'"
               >
             </div>
             <div class="field-group">
@@ -116,7 +154,7 @@
                 v-model="setupModal.model"
                 class="field-input"
                 type="text"
-                :placeholder="providers.find(p => p.id === setupModal.provider)?.defaultModel ?? ''"
+                :placeholder="providers.find(provider => provider.id === setupModal.provider)?.defaultModel ?? ''"
               >
             </div>
             <div v-if="setupModal.error" class="modal-error">{{ setupModal.error }}</div>
@@ -134,10 +172,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useChatStore } from '@/stores/chat'
 import { useToast } from '@/composables/useToast'
+import { useTheme } from '@/composables/useTheme'
 import { testPrompt } from '@/api/settings'
 import type { ProviderName } from '@/types'
 
@@ -146,8 +185,10 @@ const emit = defineEmits<{ back: [] }>()
 const settingsStore = useSettingsStore()
 const chatStore = useChatStore()
 const { show: showToast } = useToast()
+const { themes, currentTheme, setTheme } = useTheme()
 
 const activeSection = ref('providers')
+const activeSectionMeta = computed(() => sections.find(section => section.id === activeSection.value))
 
 const sections = [
   { id: 'providers', icon: '🤖', label: 'Провайдеры ИИ' },
@@ -178,8 +219,10 @@ onMounted(async () => {
 
 function openSetup(id: string) {
   setupModal.provider = id as ProviderName
-  setupModal.apiKey = ''
-  setupModal.model = settingsStore.activeModel ?? providers.find(p => p.id === id)?.defaultModel ?? ''
+  const saved = settingsStore.savedProviders[id]
+  const providerDefault = providers.find(provider => provider.id === id)?.defaultModel ?? ''
+  setupModal.apiKey = saved?.api_key ?? ''
+  setupModal.model = saved?.model ?? providerDefault
   setupModal.error = ''
   setupModal.open = true
 }
@@ -192,23 +235,22 @@ async function saveProvider() {
       apiKey: setupModal.apiKey || undefined,
       model: setupModal.model || undefined,
     })
-    await settingsStore.checkHealth()
     setupModal.open = false
-    showToast('✅', 'Провайдер подключён', providers.find(p => p.id === setupModal.provider)?.name ?? '')
+    showToast('✅', 'Провайдер подключён', providers.find(provider => provider.id === setupModal.provider)?.name ?? '')
     runPromptTest()
-  } catch (err) {
-    setupModal.error = (err as Error).message
+  } catch (error) {
+    setupModal.error = (error as Error).message
   }
 }
 
 async function runPromptTest() {
   showToast('⏳', 'PulsarAI', 'Проверяю поддержку системных промптов...', 8000)
   try {
-    const res = await testPrompt()
-    if (res.follows_instructions) {
+    const response = await testPrompt()
+    if (response.follows_instructions) {
       showToast('✅', 'PulsarAI', 'Модель поддерживает системные промпты', 6000)
     } else {
-      showToast('⚠️', 'PulsarAI', `Модель может игнорировать скрипты. Ответ: "${res.model_answer}"`, 8000)
+      showToast('⚠️', 'PulsarAI', `Модель может игнорировать скрипты. Ответ: "${response.model_answer}"`, 8000)
     }
   } catch {
     showToast('❌', 'PulsarAI', 'Не удалось проверить поддержку промптов', 5000)
@@ -351,4 +393,180 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
 .modal-enter-active .modal, .modal-leave-active .modal { transition: transform .2s ease; }
 .modal-enter-from .modal, .modal-leave-to .modal { transform: scale(0.95); }
+
+/* Theme gallery */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.theme-card {
+  position: relative;
+  border-radius: 10px;
+  border: 2px solid var(--brd);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .2s, transform .15s;
+}
+.theme-card:hover { transform: translateY(-2px); border-color: var(--brd-a); }
+.theme-card.active { border-color: var(--accent); }
+
+.theme-preview {
+  height: 90px;
+  display: flex;
+  overflow: hidden;
+}
+.tp-sidebar {
+  width: 28%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 6px;
+}
+.tp-line {
+  height: 4px;
+  border-radius: 2px;
+  opacity: 0.5;
+}
+.tp-line--active { opacity: 1; }
+.tp-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 6px;
+  justify-content: flex-end;
+}
+.tp-bubble {
+  border-radius: 5px;
+  border: 1px solid;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tp-bubble--ai { align-self: flex-start; width: 65%; }
+.tp-bubble--user { align-self: flex-end; width: 55%; }
+.tp-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.tp-input {
+  height: 12px;
+  border-radius: 4px;
+  border: 1px solid;
+  margin-top: 2px;
+}
+.theme-meta {
+  padding: 7px 10px 8px;
+  background: var(--bg-s);
+}
+.theme-name { font-size: 12px; font-weight: 600; color: var(--t1); }
+.theme-desc { font-size: 10px; color: var(--t3); margin-top: 1px; }
+.theme-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Responsive styles ──────────────────────────── */
+
+/* Legacy desktop / laptops (1024px - 1440px) */
+@media (max-width: 1440px) {
+  .settings-content { padding: 16px; }
+  .s-section { margin-bottom: 20px; padding-bottom: 20px; }
+}
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+  .settings-nav { width: 180px; padding: 12px 8px; }
+  .settings-content { padding: 14px; }
+  .prov-row { padding: 10px 12px; }
+  .theme-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+}
+
+/* Mobile (< 768px) */
+@media (max-width: 768px) {
+  .settings-body {
+    flex-direction: column;
+  }
+
+  .settings-nav {
+    width: 100%;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--brd);
+    padding: 8px;
+    gap: 4px;
+    overflow-x: auto;
+  }
+
+  .sn-item {
+    white-space: nowrap;
+    padding: 8px 12px;
+  }
+
+  .sb-label { display: none; }
+
+  .settings-content {
+    padding: 16px;
+  }
+
+  .prov-row {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .prov-info { width: 100%; }
+
+  .theme-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .modal-body {
+    width: 90vw;
+    max-height: 80vh;
+  }
+}
+
+/* Small mobile (< 480px) */
+@media (max-width: 480px) {
+  .topbar { padding: 10px 12px; }
+  .tb-title { font-size: 13px; }
+  .settings-content { padding: 12px; }
+
+  .theme-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .s-section-title { font-size: 12px; }
+}
+
+/* Mobile landscape */
+@media (max-width: 768px) and (orientation: landscape) {
+  .settings-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .theme-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .sn-item { min-height: 44px; }
+  .prov-row { min-height: 44px; }
+  .btn { min-height: 44px; }
+}
 </style>

@@ -70,4 +70,75 @@ const emit = defineEmits<{ clearChat: []; openSettings: [] }>()
   transition: all .15s;
 }
 .tb-btn:hover { color: #ef4444; border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.08); }
+
+/* ── Responsive styles ──────────────────────────── */
+
+/* Legacy desktop / laptops (1024px - 1440px) */
+@media (max-width: 1440px) {
+  .topbar { padding: 10px 12px; }
+  .chat-title { font-size: 13px; }
+}
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+  .topbar { padding: 8px 10px; }
+  .chat-title { font-size: 12px; max-width: 180px; }
+  .llm-badge { padding: 3px 8px; font-size: 10px; }
+}
+
+/* Mobile (< 768px) */
+@media (max-width: 768px) {
+  .topbar {
+    padding: 8px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chat-title {
+    font-size: 12px;
+    max-width: 150px;
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .llm-badge {
+    padding: 4px 8px;
+    font-size: 10px;
+    order: 2;
+  }
+
+  .tb-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+}
+
+/* Small mobile (< 480px) */
+@media (max-width: 480px) {
+  .topbar { padding: 6px; }
+  .chat-title {
+    font-size: 11px;
+    max-width: 120px;
+  }
+  .llm-name { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tb-btn { width: 28px; height: 28px; }
+}
+
+/* Mobile landscape */
+@media (max-width: 768px) and (orientation: landscape) {
+  .chat-title {
+    max-width: 200px;
+    order: 2;
+    width: auto;
+  }
+  .llm-badge { order: 3; }
+}
+
+/* Touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .llm-badge { min-height: 32px; }
+  .tb-btn { min-width: 36px; min-height: 36px; }
+}
 </style>

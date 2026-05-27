@@ -1,5 +1,5 @@
 <template>
-  <div ref="container" class="msgs" data-v="typing-test-123" :style="{ fontSize: (fontSize ?? 14) + 'px' }">
+  <div ref="container" class="msgs" :class="`msgs--fs-${fontSize ?? 14}`" @click="handleMsgsClick">
     <div v-if="healthLoaded && needsProvider" class="no-provider-banner">
       <div class="npb-icon">⚙️</div>
       <div class="npb-text">
@@ -10,39 +10,44 @@
     </div>
 
     <div v-else-if="!messages.length" class="msgs-empty">
-      <div class="empty-icon">✦</div>
+      <div class="empty-icon">◉</div>
       <div class="empty-title">Чем могу помочь?</div>
       <div class="empty-sub">Напишите вопрос или выберите чат из истории</div>
     </div>
 
     <div
-      v-for="msg in messages"
-      :key="msg.id"
-      :data-msg-id="msg.id"
+      v-for="message in messages"
+      :key="message.id"
+      :data-msg-id="message.id"
       class="msg"
-      :class="msg.role === 'user' ? 'u' : 'a'"
+      :class="message.role === 'user' ? 'u' : 'a'"
     >
-      <div class="mav" :class="msg.role === 'user' ? 'user' : 'ai'">
-        {{ msg.role === 'user' ? 'U' : '✦' }}
+      <div class="mav" :class="message.role === 'user' ? 'user' : 'ai'">
+        {{ message.role === 'user' ? 'U' : '◉' }}
       </div>
       <div class="mc">
         <div class="mm">
-          <span class="mn" :class="msg.role === 'user' ? 'u' : 'ai'">
-            {{ msg.role === 'user' ? 'Вы' : ('Ответ от ' + (msg.model || 'AI')) }}
+          <span class="mn" :class="message.role === 'user' ? 'u' : 'ai'">
+            {{ message.role === 'user' ? 'Вы' : ('Ответ от ' + (message.model || 'AI')) }}
           </span>
-          <span class="mt">{{ formatTime(msg.createdAt) }}</span>
+          <span class="mt">{{ formatTime(message.createdAt) }}</span>
         </div>
-        <div v-if="isProviderError(msg)" class="bub bub--hint">
+        <div v-if="isProviderError(message)" class="bub bub--hint">
           <span class="hint-icon">⚙️</span>
           <span>Провайдер не настроен. Перейдите в
             <button class="hint-link" @click="emit('openSettings')">Настройки → Провайдеры ИИ</button>
             и подключите один из сервисов.</span>
         </div>
-        <div v-else-if="msg.role === 'assistant' && isLast(msg.id) && !msg.content" class="bub">
+        <div v-else-if="message.role === 'assistant' && isLast(message.id) && !message.content" class="bub">
           <div class="typing"><div class="td" /><div class="td" /><div class="td" /></div>
         </div>
-        <div v-else class="bub" v-html="renderContent(msg.content)" />
-        <div v-if="msg.role === 'assistant' && streaming && isLast(msg.id) && msg.content" class="cursor-blink" />
+        <div v-else class="bub">
+          <div v-for="(part, partIndex) in getImageParts(message.content)" :key="partIndex" class="msg-img">
+            <img :src="part.image_url!.url" />
+          </div>
+          <span v-if="getTextContent(message.content)" v-html="renderContent(getTextContent(message.content))" />
+        </div>
+        <div v-if="message.role === 'assistant' && streaming && isLast(message.id) && message.content" class="cursor-blink" />
       </div>
     </div>
   </div>
@@ -50,7 +55,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import type { ChatMessage } from '@/types'
+import type { ChatMessage, ContentPart, MessageContent } from '@/types'
 import { useMarkdown } from '@/composables/useMarkdown'
 
 const props = defineProps<{
@@ -64,7 +69,6 @@ const emit = defineEmits<{ openSettings: []; loadMore: [before: number] }>()
 
 const container = ref<HTMLElement | null>(null)
 const { render: renderContent } = useMarkdown()
-const isInitialLoad = ref(true)
 const isLoadingMore = ref(false)
 const hasMoreMessages = ref(true)
 const isProgrammaticScroll = ref(false)
@@ -74,9 +78,20 @@ const PROVIDER_ERROR_PATTERNS = [
   'no_provider',
 ]
 
-function isProviderError(msg: ChatMessage): boolean {
-  if (msg.role !== 'assistant') return false
-  return PROVIDER_ERROR_PATTERNS.some((p) => msg.content.includes(p))
+function getTextContent(content: MessageContent): string {
+  if (typeof content === 'string') return content
+  return content.filter(part => part.type === 'text').map(part => part.text ?? '').join(' ')
+}
+
+function getImageParts(content: MessageContent): ContentPart[] {
+  if (typeof content === 'string') return []
+  return content.filter(part => part.type === 'image_url')
+}
+
+function isProviderError(message: ChatMessage): boolean {
+  if (message.role !== 'assistant') return false
+  const text = getTextContent(message.content)
+  return PROVIDER_ERROR_PATTERNS.some((pattern) => text.includes(pattern))
 }
 
 function formatTime(ts: number): string {
@@ -151,11 +166,21 @@ onUnmounted(() => {
     container.value.removeEventListener('scroll', handleScroll)
   }
 })
+
+function handleMsgsClick(e: MouseEvent) {
+  const btn = (e.target as HTMLElement).closest('.code-copy')
+  if (!btn) return
+  const codeEl = btn.closest('.code-block')?.querySelector('code')
+  if (codeEl) {
+    navigator.clipboard.writeText((codeEl as HTMLElement).innerText)
+  }
+}
 </script>
 
 <style scoped>
 .msgs {
-  flex: 1; overflow-y: auto; padding: 20px 32px;
+  flex: 1; overflow-y: auto; padding: 20px 32px 20px 32px;
+  padding-top: 52px;
   display: flex; flex-direction: column; gap: 16px;
   scrollbar-width: thin; scrollbar-color: var(--brd) transparent;
   position: relative;
@@ -191,6 +216,14 @@ onUnmounted(() => {
 .empty-title { font-size: 1.14em; font-weight: 600; color: var(--t2); }
 .empty-sub { font-size: 0.86em; }
 
+.msgs { font-size: 14px; }
+.msgs--fs-12 { font-size: 12px; }
+.msgs--fs-13 { font-size: 13px; }
+.msgs--fs-14 { font-size: 14px; }
+.msgs--fs-15 { font-size: 15px; }
+.msgs--fs-16 { font-size: 16px; }
+.msgs--fs-18 { font-size: 18px; }
+.msgs--fs-20 { font-size: 20px; }
 .msg { display: flex; gap: 10px; max-width: 780px; }
 .msg.u { flex-direction: row-reverse; margin-left: auto; }
 .msg.a { margin-right: auto; }
@@ -243,6 +276,13 @@ onUnmounted(() => {
 }
 .hint-link:hover { color: #fff; }
 
+.msg-img { margin-bottom: 6px; }
+.msg-img img {
+  max-width: 320px; max-height: 320px;
+  border-radius: 8px; border: 1px solid var(--brd);
+  display: block; object-fit: contain;
+}
+
 .cursor-blink {
   display: inline-block; width: 2px; height: 1em;
   background: var(--accent-l); margin-left: 2px; vertical-align: middle;
@@ -255,4 +295,92 @@ onUnmounted(() => {
 .td:nth-child(2) { animation-delay: .2s; }
 .td:nth-child(3) { animation-delay: .4s; }
 @keyframes tp { 0%,60%,100% { opacity:.4; transform:translateY(0) } 30% { opacity:1; transform:translateY(-4px) } }
+
+/* ── Responsive styles ──────────────────────────── */
+
+/* Legacy desktop / laptops (1024px - 1440px) */
+@media (max-width: 1440px) {
+  .msgs { padding: 16px 12px; }
+  .msg { gap: 8px; }
+}
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+  .msgs { padding: 14px 10px; }
+  .mav { width: 2em; height: 2em; }
+  .bub { padding: 8px 12px; }
+}
+
+/* Mobile (< 768px) */
+@media (max-width: 768px) {
+  .msgs {
+    padding: 12px 8px;
+    max-width: 100%;
+  }
+
+  .no-provider-banner {
+    margin: 8px;
+    padding: 12px;
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .npb-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .msg { gap: 6px; }
+  .msg.u { margin-left: 20px; }
+  .msg.a { margin-right: 20px; }
+
+  .mav {
+    width: 1.86em;
+    height: 1.86em;
+    font-size: 0.86em;
+  }
+
+  .bub {
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+
+  .mm { gap: 4px; }
+  .mn { font-size: 0.79em; }
+  .mt { font-size: 0.64em; }
+}
+
+/* Small mobile (< 480px) */
+@media (max-width: 480px) {
+  .msgs { padding: 10px 6px; }
+  .msg.u { margin-left: 10px; }
+  .msg.a { margin-right: 10px; }
+  .mav { display: none; }
+  .bub { padding: 10px 8px 6px; font-size: 0.93em; }
+}
+
+/* Mobile landscape */
+@media (max-width: 768px) and (orientation: landscape) {
+  .msgs { padding: 10px 16px; }
+  .mav { display: flex; }
+}
+
+/* Touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .bub { min-height: 44px; }
+  .hint-link { min-height: 44px; padding: 8px 12px; }
+}
+
+/* Old monitors 4:3 and 5:4 - more compact layout */
+@media (min-aspect-ratio: 4/3) and (max-aspect-ratio: 16/10) {
+  .msgs { padding: 12px 16px; }
+  .msg { max-width: 680px; }
+}
+
+/* Limited height screens */
+@media (max-height: 900px) {
+  .msgs { padding: 10px 12px; }
+  .msg-img img { max-height: 200px; }
+}
 </style>

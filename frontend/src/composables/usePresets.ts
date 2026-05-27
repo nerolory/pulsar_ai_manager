@@ -42,7 +42,7 @@ export function usePresets() {
     const presetWithTime = { ...preset, usedAt: Date.now() }
     
     // Remove if already exists
-    recentPresets.value = recentPresets.value.filter(p => p.text !== preset.text)
+    recentPresets.value = recentPresets.value.filter(item => item.text !== preset.text)
     
     // Add to beginning
     recentPresets.value.unshift(presetWithTime)
@@ -62,9 +62,9 @@ export function usePresets() {
 
   // Get combined presets (recent first, then defaults)
   const presets = computed(() => {
-    const recent = recentPresets.value.map(p => ({ icon: p.icon, label: p.label, text: p.text }))
+    const recent = recentPresets.value.map(preset => ({ icon: preset.icon, label: preset.label, text: preset.text }))
     const defaultsWithoutRecent = DEFAULT_PRESETS.filter(
-      dp => !recentPresets.value.some(rp => rp.text === dp.text)
+      defaultPreset => !recentPresets.value.some(recentPreset => recentPreset.text === defaultPreset.text)
     )
     return [...recent, ...defaultsWithoutRecent]
   })

@@ -1,0 +1,26 @@
+// Neutral Gray theme preview styles
+.theme-preview--neutral-gray {
+  background: #111318;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+
+  .tp-sidebar { background: rgba(255, 255, 255, 0.07); }
+  .tp-line { background: #4B5563; }
+  .tp-line--active { background: #94A3B8; }
+
+  .tp-bubble--ai {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.10);
+  }
+
+  .tp-bubble--user {
+    background: rgba(100, 116, 139, 0.18);
+    border-color: rgba(100, 116, 139, 0.45);
+  }
+
+  .tp-dot { background: #94A3B8; }
+
+  .tp-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.10);
+  }
+}

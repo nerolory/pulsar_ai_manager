@@ -1,0 +1,36 @@
+/* Light Clean theme preview styles */
+.theme-preview--light-clean {
+  background: #F8F9FC;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+}
+
+.theme-preview--light-clean .tp-sidebar {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.theme-preview--light-clean .tp-line {
+  background: #9CA3AF;
+}
+
+.theme-preview--light-clean .tp-line--active {
+  background: #6366F1;
+}
+
+.theme-preview--light-clean .tp-bubble--ai {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.10);
+}
+
+.theme-preview--light-clean .tp-bubble--user {
+  background: rgba(79, 70, 229, 0.10);
+  border-color: rgba(79, 70, 229, 0.30);
+}
+
+.theme-preview--light-clean .tp-dot {
+  background: #6366F1;
+}
+
+.theme-preview--light-clean .tp-input {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.10);
+}

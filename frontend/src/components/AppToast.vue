@@ -1,12 +1,12 @@
 <template>
   <TransitionGroup name="toast" tag="div" class="toast-stack">
-    <div v-for="t in toasts" :key="t.id" class="toast">
-      <div class="toast-icon">{{ t.icon }}</div>
+    <div v-for="toast in toasts" :key="toast.id" class="toast">
+      <div class="toast-icon">{{ toast.icon }}</div>
       <div class="toast-text">
-        <b>{{ t.title }}</b>
-        <span>{{ t.message }}</span>
+        <b>{{ toast.title }}</b>
+        <span>{{ toast.message }}</span>
       </div>
-      <button class="toast-close" @click="dismiss(t.id)">✕</button>
+      <button class="toast-close" @click="dismiss(toast.id)">✕</button>
     </div>
   </TransitionGroup>
 </template>
@@ -44,4 +44,33 @@ const { toasts, dismiss } = useToast()
 .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
 .toast-enter-from { opacity: 0; transform: translateX(20px); }
 .toast-leave-to   { opacity: 0; transform: translateX(20px); }
+
+/* ── Responsive styles ──────────────────────────── */
+
+/* Mobile (< 768px) */
+@media (max-width: 768px) {
+  .toasts {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+  }
+
+  .toast {
+    min-width: auto;
+    max-width: none;
+    width: 100%;
+  }
+}
+
+/* Small mobile (< 480px) */
+@media (max-width: 480px) {
+  .toast {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .toast-text b { font-size: 11px; }
+  .toast-text span { font-size: 10px; }
+  .toast-close { width: 24px; height: 24px; }
+}
 </style>

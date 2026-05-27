@@ -1,6 +1,5 @@
 import type { ChatMessage, ChatParams } from '@/types'
-
-const API_PREFIX = '/api/v1'
+import { API_BASE_URL } from './apiService'
 
 export interface StreamRequest {
   messages: Pick<ChatMessage, 'role' | 'content'>[]
@@ -33,20 +32,20 @@ export async function streamChat(
   request: StreamRequest,
   onChunk: (token: string) => void,
   onDone: () => void,
-  onError: (err: Error) => void,
+  onError: (error: Error) => void,
   signal?: AbortSignal,
 ): Promise<void> {
   try {
-    const res = await fetch(`${API_PREFIX}/chat/stream`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/chat/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
       signal,
     })
 
-    if (!res.ok) {
-      const text = await res.text()
-      let message = `HTTP ${res.status}`
+    if (!response.ok) {
+      const text = await response.text()
+      let message = `HTTP ${response.status}`
       try {
         const json = JSON.parse(text)
         message = json.detail ?? json.message ?? text
@@ -56,7 +55,7 @@ export async function streamChat(
       throw new Error(message)
     }
 
-    const reader = res.body?.getReader()
+    const reader = response.body?.getReader()
     if (!reader) throw new Error('No response body')
 
     const decoder = new TextDecoder()
@@ -66,8 +65,8 @@ export async function streamChat(
       onChunk(decoder.decode(value, { stream: true }))
     }
     onDone()
-  } catch (err) {
-    if ((err as Error).name === 'AbortError') return
-    onError(err instanceof Error ? err : new Error(String(err)))
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') return
+    onError(error instanceof Error ? error : new Error(String(error)))
   }
 }

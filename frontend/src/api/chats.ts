@@ -17,10 +17,10 @@ export interface MessageResponse {
   rowid?: number
 }
 
-export async function listChats(): Promise<ChatResponse[]> {
-  const data = await api.get<ChatResponse[]>('/chats')
-  if (!data) return []
-  return data.map(chat => ({
+export async function listChats(): Promise<Chat[]> {
+  const responseData = await api.get<ChatResponse[]>('/chats')
+  if (!responseData) return []
+  return responseData.map(chat => ({
     id: chat.id,
     title: chat.title,
     messages: [],
@@ -33,44 +33,43 @@ export async function getChatMessages(
   chatId: string, 
   limit?: number, 
   before?: number
-): Promise<MessageResponse[]> {
+): Promise<ChatMessage[]> {
   const params = new URLSearchParams()
   if (limit !== undefined) params.append('limit', limit.toString())
   if (before !== undefined) params.append('before', before.toString())
   
-  const data = await api.get<MessageResponse[]>(`/chats/${chatId}/messages?${params}`)
-  console.log(`[API getChatMessages] chatId=${chatId} limit=${limit} before=${before} raw order:`, data.map(m => `${m.role}@${m.createdAt}`))
-  return data.map(msg => ({
-    id: msg.id,
-    role: msg.role as 'user' | 'assistant' | 'system',
-    content: msg.content,
-    createdAt: msg.createdAt,
-    model: msg.model,
-    rowid: msg.rowid,
+  const responseData = await api.get<MessageResponse[]>(`/chats/${chatId}/messages?${params}`)
+  return responseData.map(message => ({
+    id: message.id,
+    role: message.role as ChatMessage['role'],
+    content: message.content,
+    createdAt: message.createdAt,
+    model: message.model,
+    rowid: message.rowid,
   }))
 }
 
-export async function createChat(title: string, id?: string): Promise<ChatResponse> {
-  const data = await api.post<ChatResponse>('/chats', { title, id })
-  if (!data) {
+export async function createChat(title: string, id?: string): Promise<Chat> {
+  const responseData = await api.post<ChatResponse>('/chats', { title, id })
+  if (!responseData) {
     throw new Error('Failed to create chat: No response data')
   }
   return {
-    id: data.id,
-    title: data.title,
+    id: responseData.id,
+    title: responseData.title,
     messages: [],
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt
+    createdAt: responseData.createdAt,
+    updatedAt: responseData.updatedAt
   }
 }
 
-export async function addMessageToChat(chatId: string, msg: ChatMessage): Promise<void> {
+export async function addMessageToChat(chatId: string, message: ChatMessage): Promise<void> {
   await api.post(`/chats/${chatId}/messages`, {
-    id: msg.id,
-    role: msg.role,
-    content: msg.content,
-    createdAt: msg.createdAt,
-    model: msg.model ?? null,
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    createdAt: message.createdAt,
+    model: message.model ?? null,
   })
 }
 

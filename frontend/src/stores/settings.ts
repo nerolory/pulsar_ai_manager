@@ -6,6 +6,7 @@ import { configureProvider, getHealth, getProviderConfig } from '@/api/settings'
 export const useSettingsStore = defineStore('settings', () => {
   const activeProvider = ref<ProviderName | null>(null)
   const activeModel = ref<string | null>(null)
+  const savedProviders = ref<Record<string, { api_key: string | null; model: string | null }>>({})
   const health = ref<HealthStatus | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -18,9 +19,9 @@ export const useSettingsStore = defineStore('settings', () => {
       activeProvider.value = config.provider
       activeModel.value = config.model ?? null
       await checkHealth()
-    } catch (err) {
-      error.value = (err as Error).message
-      throw err
+    } catch (error) {
+      error.value = (error as Error).message
+      throw error
     } finally {
       loading.value = false
     }
@@ -29,20 +30,21 @@ export const useSettingsStore = defineStore('settings', () => {
   async function checkHealth() {
     try {
       health.value = await getHealth()
-    } catch (err) {
-      console.error('Health check failed:', err)
-      error.value = `Health check failed: ${(err as Error).message}`
+    } catch (error) {
+      console.error('Health check failed:', error)
+      error.value = `Health check failed: ${(error as Error).message}`
       health.value = { status: 'error', provider: 'none', mockMode: false }
     }
   }
 
   async function loadProviderConfig() {
     try {
-      const cfg = await getProviderConfig()
-      activeProvider.value = cfg.provider
-      activeModel.value = cfg.model
-    } catch (err) {
-      console.error('Failed to load provider config:', err)
+      const config = await getProviderConfig()
+      activeProvider.value = config.provider
+      activeModel.value = config.model
+      savedProviders.value = (config as any).all_providers ?? {}
+    } catch (error) {
+      console.error('Failed to load provider config:', error)
     }
     await checkHealth()
   }
@@ -51,5 +53,5 @@ export const useSettingsStore = defineStore('settings', () => {
     health.value === null || health.value.status !== 'no_provider',
   )
 
-  return { activeProvider, activeModel, health, loading, error, isConfigured, applyProvider, checkHealth, loadProviderConfig }
+  return { activeProvider, activeModel, savedProviders, health, loading, error, isConfigured, applyProvider, checkHealth, loadProviderConfig }
 })

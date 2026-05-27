@@ -1,0 +1,26 @@
+// Dark Space theme preview styles
+.theme-preview--dark-space {
+  background: #0a0a0f;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+
+  .tp-sidebar { background: rgba(255, 255, 255, 0.08); }
+  .tp-line { background: #6B6B85; }
+  .tp-line--active { background: #818CF8; }
+
+  .tp-bubble--ai {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.13);
+  }
+
+  .tp-bubble--user {
+    background: rgba(99, 102, 241, 0.18);
+    border-color: rgba(99, 102, 241, 0.45);
+  }
+
+  .tp-dot { background: #818CF8; }
+
+  .tp-input {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.13);
+  }
+}

@@ -4,21 +4,21 @@
  * Never hardcode backend host here or in callers.
  */
 
-const API_PREFIX = '/api/v1'
+export const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? ''
+const API_PREFIX = `${API_BASE_URL}/api/v1`
 
 async function request<T = unknown>(method: string, path: string, data?: unknown): Promise<T> {
   const url = `${API_PREFIX}${path}`
-  console.debug(`[API →] ${method} ${url}`)
 
-  const res = await fetch(url, {
+  const response = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: data !== undefined ? JSON.stringify(data) : undefined,
   })
 
-  if (!res.ok) {
-    const text = await res.text()
-    let message = `HTTP ${res.status}`
+  if (!response.ok) {
+    const text = await response.text()
+    let message = `HTTP ${response.status}`
     try {
       const json = JSON.parse(text)
       message = json.detail ?? json.message ?? text
@@ -29,9 +29,7 @@ async function request<T = unknown>(method: string, path: string, data?: unknown
     throw new Error(message)
   }
 
-  const result = await res.json() as T
-  console.debug(`[API ←] ${res.status} ${url}`)
-  return result
+  return await response.json() as T
 }
 
 export const api = {

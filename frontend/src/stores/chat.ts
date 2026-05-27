@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { nanoid } from 'nanoid'
-import type { Chat, ChatMessage, ChatParams } from '@/types'
+import type { Chat, ChatMessage, ChatParams, ContentPart, MessageContent } from '@/types'
 import { streamChat, buildStreamRequest } from '@/api/chat'
-import { listChats, createChat as apiCreateChat, saveChat, renameChat as apiRenameChat, addMessageToChat, reorderChats as apiReorderChats, clearChatMessages, deleteChat as apiDeleteChat, getChatMessages } from '@/api/chats'
+import { listChats, createChat as apiCreateChat, renameChat as apiRenameChat, addMessageToChat, reorderChats as apiReorderChats, clearChatMessages, deleteChat as apiDeleteChat, getChatMessages } from '@/api/chats'
 import { useSettingsStore } from '@/stores/settings'
 
-const DEFAULT_PARAMS: ChatParams = {
+const DEFAULT_PARAMS: ChatParams = { // v2
+
   temperature: 0.7,
   maxTokens: 4096,
   topP: 0.9,
@@ -30,7 +31,7 @@ export const useChatStore = defineStore('chat', () => {
 
   // ── Computed ──────────────────────────────────────
   const activeChat = computed<Chat | null>(
-    () => chats.value.find((c) => c.id === activeChatId.value) ?? null,
+    () => chats.value.find((chat) => chat.id === activeChatId.value) ?? null,
   )
 
   const messages = computed<ChatMessage[]>(
@@ -50,29 +51,38 @@ export const useChatStore = defineStore('chat', () => {
     selectChat(chat.id)
 
     // Save to backend with same id — no id swap needed
-    apiCreateChat(title, chat.id).catch(err => {
-      console.error('Failed to save chat to backend:', err)
+    apiCreateChat(title, chat.id).catch(error => {
+      console.error('Failed to save chat to backend:', error)
     })
 
     return chat
   }
 
-  function selectChat(id: string) {
-    console.log('[Chat] selectChat:', id, 'previous:', activeChatId.value)
+  async function selectChat(id: string) {
     activeChatId.value = id
-    console.log('[Chat] selectChat set to:', activeChatId.value)
+    const chat = chats.value.find(chat => chat.id === id)
+    if (chat && chat.messages.length === 0) {
+      try {
+        const messages = await getChatMessages(id, 10)
+        chat.messages = messages
+      } catch (error) {
+        console.error('[Chat] failed to load messages for chat:', id, error)
+      }
+    }
   }
 
   async function deleteChat(id: string) {
     // Remove from localStorage immediately
-    chats.value = chats.value.filter((c) => c.id !== id)
+    chats.value = chats.value.filter((chat) => chat.id !== id)
     if (activeChatId.value === id) {
-      activeChatId.value = chats.value[0]?.id ?? null
+      const nextId = chats.value[0]?.id ?? null
+      if (nextId) await selectChat(nextId)
+      else activeChatId.value = null
     }
     
     // Delete from SQLite as backup (async, non-blocking)
-    apiDeleteChat(id).catch(err => {
-      console.error('Failed to delete chat from backend:', err)
+    apiDeleteChat(id).catch(error => {
+      console.error('Failed to delete chat from backend:', error)
     })
     
     // Auto-create new chat if all chats are deleted
@@ -84,85 +94,87 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function renameChat(id: string, title: string) {
-    const chat = chats.value.find((c) => c.id === id)
+    const chat = chats.value.find((chat) => chat.id === id)
     if (!chat || !title.trim()) return
     chat.title = title.trim()
-    apiRenameChat(id, title.trim()).catch(err => console.error('[Chat] failed to rename:', err))
+    apiRenameChat(id, title.trim()).catch(error => console.error('[Chat] failed to rename:', error))
   }
 
   function reorderChat(fromId: string, toId: string) {
-    const fromIdx = chats.value.findIndex((c) => c.id === fromId)
-    const toIdx = chats.value.findIndex((c) => c.id === toId)
-    if (fromIdx === -1 || toIdx === -1) return
+    const fromIndex = chats.value.findIndex((chat) => chat.id === fromId)
+    const toIndex = chats.value.findIndex((chat) => chat.id === toId)
+    if (fromIndex === -1 || toIndex === -1) return
     const updated = [...chats.value]
-    const [removed] = updated.splice(fromIdx, 1)
-    updated.splice(toIdx, 0, removed)
+    const [removed] = updated.splice(fromIndex, 1)
+    updated.splice(toIndex, 0, removed)
     chats.value = updated
-    apiReorderChats(updated.map((c) => c.id)).catch(err => console.error('[Chat] failed to reorder:', err))
+    apiReorderChats(updated.map((chat) => chat.id)).catch(error => console.error('[Chat] failed to reorder:', error))
   }
 
   function clearMessages() {
     if (!activeChat.value) return
     activeChat.value.messages = []
     activeChat.value.updatedAt = Date.now()
-    clearChatMessages(activeChat.value.id).catch(err => console.error('[Chat] failed to clear messages:', err))
+    clearChatMessages(activeChat.value.id).catch(error => console.error('[Chat] failed to clear messages:', error))
   }
 
-  function addMessage(role: ChatMessage['role'], content: string, model?: string): ChatMessage {
+  function addMessage(role: ChatMessage['role'], content: MessageContent, model?: string): ChatMessage {
     if (!activeChat.value) {
       throw new Error('No active chat - sendMessage should create chat first')
     }
-    const msg: ChatMessage = {
+    const message: ChatMessage = {
       id: nanoid(),
       role,
       content,
       createdAt: Date.now(),
       model,
     }
-    activeChat.value.messages.push(msg)
+    activeChat.value.messages.push(message)
     activeChat.value.updatedAt = Date.now()
     // auto-title from first user message
-    if (role === 'user' && activeChat.value.messages.filter((m) => m.role === 'user').length === 1) {
-      const words = content.trim().split(/\s+/)
+    if (role === 'user' && activeChat.value.messages.filter((msg) => msg.role === 'user').length === 1) {
+      const textContent = typeof content === 'string' ? content : (content.find(part => part.type === 'text')?.text ?? '📷 Изображение')
+      const words = textContent.trim().split(/\s+/)
       const titleWords = words.slice(0, 3).join(' ')
-      activeChat.value.title = titleWords + (words.length > 3 ? '...' : '')
-      apiRenameChat(activeChat.value.id, activeChat.value.title).catch(err => console.error('[Chat] failed to save title:', err))
+      activeChat.value.title = (titleWords || '📷 Изображение') + (words.length > 3 ? '...' : '')
+      apiRenameChat(activeChat.value.id, activeChat.value.title).catch(error => console.error('[Chat] failed to save title:', error))
     }
-    return msg
+    return message
   }
 
-  async function sendMessage(userText: string) {
-    if (streaming.value || !userText.trim()) return
+  async function sendMessage(userText: string, imageParts?: ContentPart[]) {
+    const hasImages = imageParts && imageParts.length > 0
+    if (streaming.value || (!userText.trim() && !hasImages)) return
     if (needsProvider.value) return
     error.value = null
-    console.info('[Chat] sendMessage:', userText.slice(0, 60))
 
     if (!activeChat.value) {
       await createChat()
-      // Small delay to ensure UI updates
       await new Promise(resolve => setTimeout(resolve, 0))
     }
 
+    const userContent: MessageContent = hasImages ? imageParts! : userText
+
     // Build context BEFORE mutating messages
     const historyMessages = params.value.useContext
-      ? messages.value.filter((m) => m.role !== 'system').slice(-params.value.contextDepth)
+      ? messages.value.filter((msg) => msg.role !== 'system').slice(-params.value.contextDepth)
       : []
 
     const request = buildStreamRequest(
-      [...historyMessages, { id: '', role: 'user', content: userText, createdAt: Date.now() }],
+      [...historyMessages, { id: '', role: 'user', content: userContent, createdAt: Date.now() }],
       params.value,
     )
 
     const currentModel = settingsStore.health?.model ?? settingsStore.activeModel ?? settingsStore.activeProvider ?? ''
     abortController = new AbortController()
     streaming.value = true
-    const userMsg = addMessage('user', userText)
+    const userMsg = addMessage('user', userContent)
     const assistantMsg = addMessage('assistant', '', currentModel)
     assistantMsg.createdAt = userMsg.createdAt + 1
 
     // Save user message immediately (incremental — no DELETE/INSERT)
     if (activeChatId.value) {
-      addMessageToChat(activeChatId.value, userMsg).catch(err => console.error('[Chat] failed to save user msg:', err))
+      addMessageToChat(activeChatId.value, userMsg).catch(error => console.error('[Chat] failed to save user msg:', error))
     }
 
     const MAX_RETRIES = 3
@@ -174,24 +186,21 @@ export const useChatStore = defineStore('chat', () => {
       assistantMsg.content = ''
       lastError = null
 
-      console.log(`[Chat] attempt ${attempt}/${MAX_RETRIES}`)
-
       let succeeded = false
       await new Promise<void>((resolve) => {
         streamChat(
           request,
           (token) => { assistantMsg.content += token },
           () => {
-            console.info('[Chat] streaming done, total length:', assistantMsg.content.length)
             succeeded = true
             resolve()
           },
-          (err) => {
-            if (err.name === 'AbortError') {
+          (error) => {
+            if (error.name === 'AbortError') {
               succeeded = true // user stopped intentionally
             } else {
-              console.error(`[Chat] attempt ${attempt} error:`, err.message)
-              lastError = err
+              console.error(`[Chat] attempt ${attempt} error:`, error.message)
+              lastError = error
             }
             resolve()
           },
@@ -204,13 +213,12 @@ export const useChatStore = defineStore('chat', () => {
         abortController = null
         // Save completed assistant message incrementally
         if (activeChatId.value) {
-          addMessageToChat(activeChatId.value, assistantMsg).catch(err => console.error('[Chat] failed to save assistant msg:', err))
+          addMessageToChat(activeChatId.value, assistantMsg).catch(error => console.error('[Chat] failed to save assistant msg:', error))
         }
         return
       }
 
       if (attempt < MAX_RETRIES) {
-        console.info(`[Chat] retrying in 1s... (${attempt}/${MAX_RETRIES})`)
         await new Promise(resolve => setTimeout(resolve, 1000))
         abortController = new AbortController()
       }
@@ -223,7 +231,7 @@ export const useChatStore = defineStore('chat', () => {
     streaming.value = false
     abortController = null
     if (activeChatId.value) {
-      addMessageToChat(activeChatId.value, assistantMsg).catch(err => console.error('[Chat] failed to save error msg:', err))
+      addMessageToChat(activeChatId.value, assistantMsg).catch(error => console.error('[Chat] failed to save error msg:', error))
     }
   }
 
@@ -242,25 +250,24 @@ export const useChatStore = defineStore('chat', () => {
         chats.value = chatList
         if (chatList.length > 0) {
           // Set active chat if not set or invalid
-          if (!activeChatId.value || !chatList.find(c => c.id === activeChatId.value)) {
+          if (!activeChatId.value || !chatList.find(chat => chat.id === activeChatId.value)) {
             activeChatId.value = chatList[0].id
           }
           // Load messages for active chat
           const messages = await getChatMessages(activeChatId.value, 10)
-          console.log('[Store loadChats] messages after getChatMessages:', messages.map(m => `${m.role}@${m.createdAt}`))
-          const chatIndex = chats.value.findIndex(c => c.id === activeChatId.value)
+          const chatIndex = chats.value.findIndex(chat => chat.id === activeChatId.value)
           if (chatIndex !== -1) {
             chats.value[chatIndex].messages = messages
           }
         }
-      } catch (err) {
-        console.error('Failed to load chats from backend:', err)
+      } catch (error) {
+        console.error('Failed to load chats from backend:', error)
         // Don't fallback to localStorage - show error instead
         error.value = 'Failed to load chats from server'
       }
-    } catch (err) {
+    } catch (error) {
       error.value = 'Не удалось загрузить чаты'
-      console.error('Failed to load chats:', err)
+      console.error('Failed to load chats:', error)
     } finally {
       loading.value = false
     }
@@ -270,24 +277,14 @@ export const useChatStore = defineStore('chat', () => {
     if (!activeChatId.value) return
     try {
       const messages = await getChatMessages(activeChatId.value, 10, before)
-      console.log('[Store loadMoreMessages] messages after getChatMessages:', messages.map(m => `${m.role}@${m.createdAt}`))
       if (messages.length > 0) {
-        const chatIndex = chats.value.findIndex(c => c.id === activeChatId.value)
+        const chatIndex = chats.value.findIndex(chat => chat.id === activeChatId.value)
         if (chatIndex !== -1) {
           chats.value[chatIndex].messages = [...messages, ...chats.value[chatIndex].messages]
         }
       }
-    } catch (err) {
-      console.error('Failed to load more messages:', err)
-    }
-  }
-
-  async function saveChatToBackend() {
-    if (!activeChat.value) return
-    try {
-      await saveChat(activeChat.value)
-    } catch (err) {
-      console.error('Failed to save chat:', err)
+    } catch (error) {
+      console.error('Failed to load more messages:', error)
     }
   }
 
@@ -312,6 +309,5 @@ export const useChatStore = defineStore('chat', () => {
     stopStreaming,
     loadChats,
     loadMoreMessages,
-    saveChatToBackend,
   }
 })

@@ -1,0 +1,71 @@
+// Theme preview styles
+@use 'dark-space/preview' as *;
+@use 'neutral-gray/preview' as *;
+@use 'light-clean/preview' as *;
+@use 'ocean-dark/preview' as *;
+@use 'forest/preview' as *;
+@use 'light-warm/preview' as *;
+@use 'steampunk/preview' as *;
+
+// Common theme preview layout styles
+.theme-preview {
+  display: flex;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tp-sidebar {
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.tp-line {
+  height: 4px;
+  border-radius: 2px;
+}
+
+.tp-line--active {
+  width: 100%;
+}
+
+.tp-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.tp-bubble {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tp-bubble--ai {
+  align-self: flex-start;
+}
+
+.tp-bubble--user {
+  align-self: flex-end;
+}
+
+.tp-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.tp-input {
+  margin-top: auto;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid;
+}
