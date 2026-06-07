@@ -1,6 +1,10 @@
+"""Mock provider for testing without external API calls."""
+
 import asyncio
 from typing import AsyncIterator, List
+
 from app.providers.base import BaseLLMProvider
+from app.providers.factory import ProviderFactory
 from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 
 
@@ -11,8 +15,18 @@ MOCK_RESPONSE = (
 )
 
 
+@ProviderFactory.register(name="mock", default_model="mock", requires_api_key=False)
 class MockProvider(BaseLLMProvider):
+    """Mock provider — returns static response for testing.
+
+    Does not require an API key or network access.
+    """
+
     model = "mock"
+
+    def __init__(self, **kwargs):
+        """Initialize mock provider (no credentials needed)."""
+        pass
 
     async def chat(self, request: ChatRequest) -> AsyncIterator[str]:
         for word in MOCK_RESPONSE.split():

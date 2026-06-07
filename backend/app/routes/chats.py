@@ -4,12 +4,14 @@ Provides endpoints for creating, reading, updating and deleting chats,
 adding messages, reordering conversations, and pagination support.
 """
 
-from fastapi import APIRouter, HTTPException, Query
-from app.database import save_chat, add_message, update_message_content, get_chat_list, get_chat_messages, clear_chat_messages, reorder_chats, delete_chat, get_chat_count
-from pydantic import BaseModel
-from typing import List, Optional, Union
-from loguru import logger
 import json
+from typing import List, Optional, Union
+
+from fastapi import APIRouter, HTTPException, Query
+from loguru import logger
+from pydantic import BaseModel
+
+from app.repositories import ChatRepository, MessageRepository
 
 router = APIRouter(prefix="/chats")
 
@@ -114,7 +116,7 @@ async def list_chats():
         HTTPException: On database errors.
     """
     try:
-        chats = await get_chat_list()
+        chats = await ChatRepository.get_list()
         return [
             ChatResponse(
                 id=chat["id"],
@@ -140,7 +142,7 @@ async def reorder_chats_endpoint(request: ReorderRequest):
         dict: Confirmation object.
     """
     try:
-        await reorder_chats(request.ids)
+        await ChatRepository.reorder(request.ids)
         return {"ok": True}
     except Exception as e:
         logger.error(f"Failed to reorder chats: {e}")
@@ -164,7 +166,7 @@ async def get_messages(
         List[MessageResponse]: Messages in chronological order.
     """
     try:
-        messages = await get_chat_messages(chat_id, limit=limit, before_rowid=before)
+        messages = await MessageRepository.get_by_chat(chat_id, limit=limit, before_rowid=before)
         response = [
             MessageResponse(
                 id=message["id"],
@@ -194,7 +196,7 @@ async def add_message_endpoint(chat_id: str, request: AddMessageRequest):
         MessageResponse: The added message.
     """
     try:
-        await add_message(chat_id, request.id, request.role, serialize_content(request.content), request.createdAt, request.model)
+        await MessageRepository.add(chat_id, request.id, request.role, serialize_content(request.content), request.createdAt, request.model)
         return MessageResponse(
             id=request.id,
             role=request.role,
@@ -222,7 +224,7 @@ async def create_chat(request: ChatCreateRequest):
         from datetime import datetime
         chat_id = request.id or str(uuid.uuid4())
         now = int(datetime.now().timestamp() * 1000)
-        await save_chat(chat_id, request.title, [])
+        await ChatRepository.save(chat_id, request.title)
         return ChatResponse(
             id=chat_id,
             title=request.title,
@@ -246,17 +248,9 @@ async def update_chat(chat_id: str, request: ChatUpdateRequest):
         ChatResponse: Updated chat summary.
     """
     try:
-        messages_dict = [
-            {
-                "id": msg.id,
-                "role": msg.role,
-                "content": msg.content,
-                "createdAt": msg.createdAt,
-                "model": msg.model
-            }
-            for msg in request.messages
-        ]
-        await save_chat(chat_id, request.title, messages_dict)
+        await ChatRepository.save(chat_id, request.title)
+        for msg in request.messages:
+            await MessageRepository.add(chat_id, msg.id, msg.role, serialize_content(msg.content), msg.createdAt, msg.model)
         from datetime import datetime
         now = int(datetime.now().timestamp() * 1000)
         return ChatResponse(
@@ -282,7 +276,7 @@ async def rename_chat(chat_id: str, request: ChatRenameRequest):
         ChatResponse: Updated chat summary.
     """
     try:
-        await save_chat(chat_id, request.title)
+        await ChatRepository.save(chat_id, request.title)
         from datetime import datetime
         now = int(datetime.now().timestamp() * 1000)
         return ChatResponse(id=chat_id, title=request.title, createdAt=now, updatedAt=now)
@@ -302,7 +296,7 @@ async def clear_messages_endpoint(chat_id: str):
         dict: Confirmation object.
     """
     try:
-        await clear_chat_messages(chat_id)
+        await MessageRepository.clear_by_chat(chat_id)
         return {"cleared": True}
     except Exception as e:
         logger.error(f"Failed to clear messages for chat {chat_id}: {e}")
@@ -323,7 +317,7 @@ async def delete_chat_endpoint(chat_id: str):
         HTTPException: 404 if the chat does not exist.
     """
     try:
-        deleted = await delete_chat(chat_id)
+        deleted = await ChatRepository.delete(chat_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Chat not found")
         return {"deleted": True}
@@ -342,7 +336,7 @@ async def get_chat_stats():
         dict: Object containing the chat count.
     """
     try:
-        count = await get_chat_count()
+        count = await ChatRepository.get_count()
         return {"total_chats": count}
     except Exception as e:
         logger.error(f"Failed to get chat stats: {e}")

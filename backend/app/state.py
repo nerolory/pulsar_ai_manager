@@ -1,29 +1,8 @@
 """Global provider state management.
 
-Holds a singleton reference to the currently active LLM provider
-so it can be accessed from any route without passing it around.
+This module re-exports set_provider/get_provider from the new
+core.provider_registry module for backward compatibility.
+All existing imports of `from app.state import ...` continue to work.
 """
 
-from typing import Optional
-from app.providers.base import BaseLLMProvider
-
-_provider: Optional[BaseLLMProvider] = None
-
-
-def set_provider(provider: BaseLLMProvider) -> None:
-    """Set the global active LLM provider.
-
-    Args:
-        provider: Initialised provider instance to use for all chat requests.
-    """
-    global _provider
-    _provider = provider
-
-
-def get_provider() -> Optional[BaseLLMProvider]:
-    """Return the currently active LLM provider, if any.
-
-    Returns:
-        Optional[BaseLLMProvider]: The active provider or None.
-    """
-    return _provider
+from app.core.provider_registry import set_provider, get_provider  # noqa: F401

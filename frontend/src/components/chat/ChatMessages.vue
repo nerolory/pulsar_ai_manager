@@ -41,7 +41,7 @@
         <div v-else-if="isBalanceError(message)" class="bub bub--hint bub--balance">
           <span class="hint-icon">💰</span>
           <span>{{ message.content }}</span>
-          <button v-if="message.rowid" class="hint-btn" @click="switchToFreeModel(message.rowid)">Переключиться</button>
+          <button v-if="message.freeModelId" class="hint-btn" @click="switchToFreeModel(message.freeModelId)">Переключиться</button>
           <button class="hint-link" @click="emit('openSettings')">Пополнить баланс</button>
         </div>
         <div v-else-if="message.role === 'assistant' && isLast(message.id) && !message.content" class="bub">
@@ -129,8 +129,9 @@ const BALANCE_ERROR_PATTERNS = [
 ]
 
 function isProviderError(message: ChatMessage): boolean {
+  const text = typeof message.content === 'string' ? message.content : ''
   return PROVIDER_ERROR_PATTERNS.some(pattern => 
-    message.content?.toLowerCase().includes(pattern.toLowerCase())
+    text.toLowerCase().includes(pattern.toLowerCase())
   )
 }
 

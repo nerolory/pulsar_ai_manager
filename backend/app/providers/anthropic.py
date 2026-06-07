@@ -1,9 +1,13 @@
 """Anthropic Claude provider using native SDK."""
 
 from typing import AsyncIterator, List
+
 import anthropic
+from loguru import logger
+
 from app.providers.base import BaseLLMProvider
-from app.schemas import ChatRequest, ChatMessage, ProviderCapabilities, ModelInfo
+from app.providers.factory import ProviderFactory
+from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 from app.exceptions import (
     AuthenticationError,
     RateLimitError,
@@ -12,13 +16,23 @@ from app.exceptions import (
     ProviderUnavailableError,
     ProviderError,
 )
-from loguru import logger
 
 
+@ProviderFactory.register(name="anthropic", default_model="claude-3-5-sonnet-20241022")
 class AnthropicProvider(BaseLLMProvider):
-    """Anthropic Claude provider with native SDK support."""
+    """Anthropic Claude provider with native SDK support.
 
-    def __init__(self, api_key: str, model: str = "claude-3-5-sonnet-20241022"):
+    Uses the official anthropic async SDK for streaming.
+    Error handling uses SDK-specific exception types for precise mapping.
+    """
+
+    def __init__(self, api_key: str, model: str = "claude-3-5-sonnet-20241022", **kwargs):
+        """Initialize Anthropic provider.
+
+        Args:
+            api_key: Anthropic API key (sk-ant-...).
+            model: Model identifier.
+        """
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self.model = model
 

@@ -54,8 +54,11 @@ async def lifespan(application: FastAPI):
     await init_db()
 
     if settings.mock_mode:
-        from app.providers.mock import MockProvider
-        set_provider(MockProvider())
+        from app.providers.factory import ProviderFactory, ProviderConfig
+        import app.providers
+        app.providers.register_all()
+        mock_instance = ProviderFactory.create(ProviderConfig(provider="mock"))
+        set_provider(mock_instance)
         logger.info("MockProvider activated (MOCK_MODE=true)")
     else:
         from app.storage import load_provider_config

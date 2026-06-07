@@ -284,7 +284,7 @@
                 >
                 <div v-if="setupModal.providerDetection" class="provider-detection">
                   <span v-if="setupModal.providerDetection.detected" class="detection-success">
-                    ✓ Обнаружен: {{ providers.value?.find(p => p.id === setupModal.providerDetection.provider)?.name }}
+                    ✓ Обнаружен: {{ providers.find((p: any) => p.id === setupModal.providerDetection?.provider)?.name }}
                   </span>
                   <span v-else-if="setupModal.providerDetection.compatible" class="detection-info">
                     ℹ️ {{ setupModal.providerDetection.message }}
@@ -347,7 +347,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useChatStore } from '@/stores/chat'
 import { useToast } from '@/composables/useToast'
 import { useTheme } from '@/composables/useTheme'
-import { testPrompt, getModels, refreshModels, detectProvider, getBalance, getLocalLLMSettings, getLocalModels } from '@/api/settings'
+import { testPrompt, getModels, refreshModels as apiRefreshModels, detectProvider, getBalance, getLocalLLMSettings, getLocalModels } from '@/api/settings'
 import type { ProviderName, ModelInfo } from '@/types'
 import ModelSelect from '@/components/ModelSelect.vue'
 import LocalModels from '@/components/LocalModels.vue'
@@ -397,14 +397,14 @@ const providers = computed(() => {
 const setupModal = reactive({
   open: false,
   mode: 'simple' as 'simple' | 'manual',
-  provider: '' as ProviderName,
+  provider: '' as ProviderName | '',
   apiKey: '',
   model: '',
   baseUrl: '',
   error: '',
   providerModels: [] as ModelInfo[],
   loadingModels: false,
-  modelsSource: 'cache' as 'cache' | 'api',
+  modelsSource: 'cache' as string,
   detectingProvider: false,
   providerDetection: null as { provider: string | null; detected: boolean; compatible: boolean; message?: string } | null,
   showApiKey: false,
@@ -569,13 +569,13 @@ async function saveProvider() {
   setupModal.error = ''
   try {
     await settingsStore.applyProvider({
-      provider: setupModal.mode === 'manual' ? 'openai' as ProviderName : setupModal.provider,
+      provider: setupModal.mode === 'manual' ? 'openai' as ProviderName : setupModal.provider as ProviderName,
       apiKey: setupModal.apiKey || undefined,
       model: setupModal.model || undefined,
       baseUrl: setupModal.mode === 'manual' ? setupModal.baseUrl : undefined,
     })
     setupModal.open = false
-    showToast('✅', 'Провайдер подключён', providers.value?.find(provider => provider.id === setupModal.provider)?.name ?? 'Custom')
+    showToast('✅', 'Провайдер подключён', providers.value.find((p: any) => p.id === setupModal.provider)?.name ?? 'Custom')
     await settingsStore.loadCapabilities()
     await loadProviderBalance()
     runPromptTest()

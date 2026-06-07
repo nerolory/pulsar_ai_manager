@@ -1,21 +1,44 @@
-"""Base class for OpenAI-compatible LLM providers."""
+"""Base class for OpenAI-compatible LLM providers.
+
+Provides unified chat streaming, error handling, health checks,
+model listing and capability reporting for all OpenAI-compatible APIs.
+"""
 
 from typing import AsyncIterator, List
 import httpx
 from openai import AsyncOpenAI
+from loguru import logger
+
 from app.providers.base import BaseLLMProvider
 from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
-from loguru import logger
+from app.exceptions import (
+    AuthenticationError,
+    RateLimitError,
+    ModelNotFoundError,
+    NetworkError,
+    ProviderError,
+)
 
 
 class OpenAICompatibleProvider(BaseLLMProvider):
     """Base class for providers using OpenAI-compatible API.
 
     This class provides common functionality for providers that use the
-    OpenAI API format, including model listing and capabilities.
+    OpenAI API format, including model listing, capabilities, and
+    unified error handling so subclasses don't need to duplicate it.
+
+    Attributes:
+        model: Currently active model identifier.
     """
 
     def __init__(self, api_key: str, model: str, base_url: str):
+        """Initialize provider with API credentials.
+
+        Args:
+            api_key: Authentication key for the provider.
+            model: Model identifier to use for completions.
+            base_url: Base URL of the OpenAI-compatible API.
+        """
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
@@ -25,27 +48,81 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         self._provider_name = self.__class__.__name__.replace("Provider", "").lower()
 
     async def chat(self, request: ChatRequest) -> AsyncIterator[str]:
-        """Stream chat completion using OpenAI-compatible API."""
-        messages = [
-            {"role": message.role, "content": message.content if isinstance(message.content, str) else [part.model_dump(exclude_none=True) for part in message.content]}
-            for message in request.messages
-        ]
-        
-        stream = await self._client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=request.temperature,
-            max_tokens=request.max_tokens,
-            stream=True,
-        )
-        
-        async for chunk in stream:
-            if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                choice = chunk.choices[0]
-                if hasattr(choice, 'delta') and hasattr(choice.delta, 'content'):
-                    token = choice.delta.content
-                    if token:
-                        yield token
+        """Stream chat completion with unified error handling.
+
+        Args:
+            request: Chat request with messages and parameters.
+
+        Yields:
+            Token strings as they arrive from the API.
+
+        Raises:
+            AuthenticationError: Invalid API key.
+            RateLimitError: Rate limit exceeded.
+            ModelNotFoundError: Model not available.
+            NetworkError: Connection/timeout issues.
+            ProviderError: Any other provider failure.
+        """
+        try:
+            messages = [
+                {
+                    "role": message.role,
+                    "content": (
+                        message.content
+                        if isinstance(message.content, str)
+                        else [part.model_dump(exclude_none=True) for part in message.content]
+                    ),
+                }
+                for message in request.messages
+            ]
+
+            stream = await self._client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=request.temperature,
+                max_tokens=request.max_tokens,
+                stream=True,
+            )
+
+            async for chunk in stream:
+                if hasattr(chunk, "choices") and len(chunk.choices) > 0:
+                    choice = chunk.choices[0]
+                    if hasattr(choice, "delta") and hasattr(choice.delta, "content"):
+                        token = choice.delta.content
+                        if token:
+                            yield token
+        except (AuthenticationError, RateLimitError, ModelNotFoundError, NetworkError, ProviderError):
+            raise
+        except Exception as e:
+            raise self._map_error(e) from e
+
+    def _map_error(self, error: Exception) -> ProviderError:
+        """Map a raw exception to the appropriate typed ProviderError.
+
+        Args:
+            error: The original exception from the API call.
+
+        Returns:
+            A typed exception subclass for the error category.
+        """
+        error_str = str(error).lower()
+        name = self._provider_name.capitalize()
+
+        if "authentication" in error_str or "invalid api key" in error_str or "401" in error_str:
+            logger.error(f"{name} authentication error: {error}")
+            return AuthenticationError(f"Неверный API ключ {name}. Проверьте настройки.")
+        if "rate limit" in error_str or "429" in error_str:
+            logger.error(f"{name} rate limit error: {error}")
+            return RateLimitError(f"Превышен лимит запросов {name}. Попробуйте позже.")
+        if "not found" in error_str or "404" in error_str:
+            logger.error(f"{name} model not found: {error}")
+            return ModelNotFoundError(f"Модель {self.model} не найдена. Обновите список моделей.")
+        if "timeout" in error_str or "connection" in error_str:
+            logger.error(f"{name} network error: {error}")
+            return NetworkError(f"Ошибка сети при подключении к {name}.")
+
+        logger.error(f"{name} unexpected error: {error}")
+        return ProviderError(f"Ошибка провайдера {name}: {error}")
 
     async def health_check(self) -> bool:
         """Check if provider API is accessible."""

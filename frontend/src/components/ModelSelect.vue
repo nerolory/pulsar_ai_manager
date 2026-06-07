@@ -14,7 +14,7 @@
           v-for="model in models"
           :key="model.id"
           class="model-option"
-          :class="{ selected: model.id === selectedModel }"
+          :class="{ selected: model.id === selectedModel?.id }"
           @click="selectModel(model)"
         >
           <div class="model-option-content">

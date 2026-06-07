@@ -1,28 +1,68 @@
 """Google Gemini provider using native SDK."""
 
-from typing import AsyncIterator, List
 import asyncio
+from typing import AsyncIterator, List
+
 import google.generativeai as genai
+from loguru import logger
+
 from app.providers.base import BaseLLMProvider
+from app.providers.factory import ProviderFactory
 from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 from app.exceptions import (
     AuthenticationError,
     RateLimitError,
     ModelNotFoundError,
     NetworkError,
-    ProviderUnavailableError,
     ProviderError,
 )
-from loguru import logger
 
 
+def _map_gemini_error(error: Exception, model_name: str) -> ProviderError:
+    """Map a Gemini exception to a typed ProviderError.
+
+    Args:
+        error: The original exception.
+        model_name: Current model name for error messages.
+
+    Returns:
+        Typed ProviderError subclass.
+    """
+    error_str = str(error).lower()
+    if "authentication" in error_str or "invalid api key" in error_str or "permission" in error_str:
+        logger.error(f"Gemini authentication error: {error}")
+        return AuthenticationError("Неверный API ключ Gemini. Проверьте настройки.")
+    if "rate limit" in error_str or "429" in error_str or "quota" in error_str:
+        logger.error(f"Gemini rate limit error: {error}")
+        return RateLimitError("Превышен лимит запросов Gemini. Попробуйте позже.")
+    if "not found" in error_str or "404" in error_str:
+        logger.error(f"Gemini model not found: {error}")
+        return ModelNotFoundError(f"Модель {model_name} не найдена. Обновите список моделей.")
+    if "timeout" in error_str or "connection" in error_str or "network" in error_str:
+        logger.error(f"Gemini network error: {error}")
+        return NetworkError("Ошибка сети при подключении к Gemini.")
+    logger.error(f"Gemini unexpected error: {error}")
+    return ProviderError(f"Ошибка провайдера Gemini: {error}")
+
+
+@ProviderFactory.register(name="gemini", default_model="gemini-2.0-flash-exp")
 class GeminiProvider(BaseLLMProvider):
-    """Google Gemini provider with native SDK support."""
+    """Google Gemini provider with native SDK support.
 
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash-exp"):
+    Uses google-generativeai SDK with synchronous streaming
+    wrapped in asyncio.to_thread for non-blocking operation.
+    """
+
+    def __init__(self, api_key: str, model: str = "gemini-2.0-flash-exp", **kwargs):
+        """Initialize Gemini provider.
+
+        Args:
+            api_key: Google AI API key.
+            model: Model identifier.
+        """
         genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(model)
-        self.model_name = model
+        self._genai_model = genai.GenerativeModel(model)
+        self.model = model
 
     async def chat(self, request: ChatRequest) -> AsyncIterator[str]:
         """Stream chat completion using Gemini native API."""
@@ -51,7 +91,7 @@ class GeminiProvider(BaseLLMProvider):
 
             # Stream response (run in thread to avoid blocking)
             def _stream():
-                return self._model.generate_content(
+                return self._genai_model.generate_content(
                     prompt,
                     generation_config=generation_config,
                     stream=True,
@@ -63,29 +103,16 @@ class GeminiProvider(BaseLLMProvider):
                 if chunk.text:
                     yield chunk.text
 
+        except (AuthenticationError, RateLimitError, ModelNotFoundError, NetworkError, ProviderError):
+            raise
         except Exception as e:
-            error_str = str(e).lower()
-            if "authentication" in error_str or "invalid api key" in error_str or "permission" in error_str:
-                logger.error(f"Gemini authentication error: {e}")
-                raise AuthenticationError("Неверный API ключ Gemini. Проверьте настройки.")
-            elif "rate limit" in error_str or "429" in error_str or "quota" in error_str:
-                logger.error(f"Gemini rate limit error: {e}")
-                raise RateLimitError("Превышен лимит запросов Gemini. Попробуйте позже.")
-            elif "not found" in error_str or "404" in error_str:
-                logger.error(f"Gemini model not found: {e}")
-                raise ModelNotFoundError(f"Модель {self.model_name} не найдена. Обновите список моделей.")
-            elif "timeout" in error_str or "connection" in error_str or "network" in error_str:
-                logger.error(f"Gemini network error: {e}")
-                raise NetworkError("Ошибка сети при подключении к Gemini.")
-            else:
-                logger.error(f"Gemini unexpected error: {e}")
-                raise ProviderError(f"Ошибка провайдера Gemini: {str(e)}")
+            raise _map_gemini_error(e, self.model) from e
 
     async def health_check(self) -> bool:
         """Check if Gemini API is accessible."""
         try:
             def _check():
-                return self._model.generate_content("test", max_output_tokens=10)
+                return self._genai_model.generate_content("test", max_output_tokens=10)
             await asyncio.to_thread(_check)
             return True
         except Exception as e:

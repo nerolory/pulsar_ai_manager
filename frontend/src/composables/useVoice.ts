@@ -1,20 +1,7 @@
 import { ref, computed } from 'vue'
+import { transcribeAudio } from '@/api/voice'
 
 export type VoiceState = 'idle' | 'recording' | 'processing'
-
-const API_BASE = '/api/v1'
-
-async function transcribeViaBackend(blob: Blob): Promise<string> {
-  const form = new FormData()
-  form.append('file', blob, 'audio.webm')
-  const res = await fetch(`${API_BASE}/voice/transcribe`, { method: 'POST', body: form })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Transcription failed')
-  }
-  const data = await res.json()
-  return data.text || ''
-}
 
 export function useVoice() {
   const state = ref<VoiceState>('idle')
@@ -25,7 +12,7 @@ export function useVoice() {
 
   let mediaRecorder: MediaRecorder | null = null
   let chunks: Blob[] = []
-  let recognition: SpeechRecognition | null = null
+  let recognition: any = null
 
   // Try Web Speech API first (instant, no backend needed)
   const hasSpeechRecognition = typeof window !== 'undefined' &&
@@ -35,31 +22,31 @@ export function useVoice() {
     const SpeechRecognitionAPI =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     recognition = new SpeechRecognitionAPI()
-    recognition!.lang = 'ru-RU'
-    recognition!.interimResults = false
-    recognition!.maxAlternatives = 1
-    recognition!.continuous = false
+    recognition.lang = 'ru-RU'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    recognition.continuous = false
 
-    recognition!.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript
       state.value = 'idle'
       onResult(transcript)
     }
 
-    recognition!.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event: any) => {
       state.value = 'idle'
       if (event.error !== 'no-speech' && event.error !== 'aborted') {
         onError(event.error)
       }
     }
 
-    recognition!.onend = () => {
+    recognition.onend = () => {
       if (state.value === 'recording') {
         state.value = 'idle'
       }
     }
 
-    recognition!.start()
+    recognition.start()
     state.value = 'recording'
   }
 
@@ -85,7 +72,7 @@ export function useVoice() {
         state.value = 'processing'
         try {
           const blob = new Blob(chunks, { type: mimeType || 'audio/webm' })
-          const text = await transcribeViaBackend(blob)
+          const text = await transcribeAudio(blob)
           state.value = 'idle'
           if (text) onResult(text)
         } catch (e: any) {

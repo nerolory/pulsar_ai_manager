@@ -1,14 +1,31 @@
-from app.providers.openai_compatible import OpenAICompatibleProvider
-from app.schemas import ProviderCapabilities
-from app.utils import NumberUtils
+"""OpenRouter provider using OpenAI-compatible API."""
+
+import re
+
 import httpx
 from loguru import logger
 
+from app.providers.openai_compatible import OpenAICompatibleProvider
+from app.providers.factory import ProviderFactory
+from app.schemas import ProviderCapabilities
+from app.utils import NumberUtils
 
+
+@ProviderFactory.register(name="openrouter", default_model="qwen/qwen3-235b-a22b:free")
 class OpenRouterProvider(OpenAICompatibleProvider):
-    """OpenRouter provider using OpenAI-compatible API."""
+    """OpenRouter provider — 200+ models, free tier available.
 
-    def __init__(self, api_key: str, model: str = "qwen/qwen3-235b-a22b:free"):
+    Inherits unified error handling from OpenAICompatibleProvider.
+    Adds balance checking and free tier detection.
+    """
+
+    def __init__(self, api_key: str, model: str = "qwen/qwen3-235b-a22b:free", **kwargs):
+        """Initialize OpenRouter provider.
+
+        Args:
+            api_key: OpenRouter API key (sk-or-v1-...).
+            model: Model identifier.
+        """
         super().__init__(api_key, model, "https://openrouter.ai/api/v1")
 
     def get_capabilities(self) -> ProviderCapabilities:
@@ -70,8 +87,6 @@ class OpenRouterProvider(OpenAICompatibleProvider):
                 # Try to get limit from pricing description or other metadata
                 description = getattr(model, 'description', '')
                 if 'free' in description.lower() or 'limit' in description.lower():
-                    # Parse limit from description if available
-                    import re
                     limit_match = re.search(r'(\d+)\s*(requests?|tokens?)', description.lower())
                     if limit_match:
                         limit_value = int(limit_match.group(1))

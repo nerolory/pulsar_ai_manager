@@ -13,7 +13,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const error = ref<string | null>(null)
   const capabilities = ref<ProviderCapabilities | null>(null)
   const models = ref<ModelInfo[]>([])
-  const modelsSource = ref<'cache' | 'api'>('cache')
+  const modelsSource = ref<string>('cache')
   const providersMetadata = ref<Record<string, ProviderMetadata>>({})
 
   async function applyProvider(config: ProviderConfig) {
@@ -24,9 +24,9 @@ export const useSettingsStore = defineStore('settings', () => {
       activeProvider.value = config.provider
       activeModel.value = config.model ?? null
       await checkHealth()
-    } catch (error) {
-      error.value = (error as Error).message
-      throw error
+    } catch (err) {
+      error.value = (err as Error).message
+      throw err
     } finally {
       loading.value = false
     }
@@ -35,9 +35,9 @@ export const useSettingsStore = defineStore('settings', () => {
   async function checkHealth() {
     try {
       health.value = await getHealth()
-    } catch (error) {
-      console.error('Health check failed:', error)
-      error.value = `Health check failed: ${(error as Error).message}`
+    } catch (err) {
+      console.error('Health check failed:', err)
+      error.value = `Health check failed: ${(err as Error).message}`
       health.value = { status: 'error', provider: 'none', mockMode: false }
     }
   }
@@ -48,8 +48,8 @@ export const useSettingsStore = defineStore('settings', () => {
       activeProvider.value = config.provider
       activeModel.value = config.model
       savedProviders.value = (config as any).all_providers ?? {}
-    } catch (error) {
-      console.error('Failed to load provider config:', error)
+    } catch (err) {
+      console.error('Failed to load provider config:', err)
     }
     // Load health check after config is loaded
     await checkHealth()
@@ -57,20 +57,17 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function loadProvidersMetadata() {
     try {
-      const data = await getProviders()
-      console.log('Providers metadata loaded:', data)
-      console.log('First provider data:', Object.values(data.providers)[0])
-      providersMetadata.value = data
-    } catch (error) {
-      console.error('Failed to load providers metadata:', error)
+      providersMetadata.value = await getProviders()
+    } catch (err) {
+      console.error('Failed to load providers metadata:', err)
     }
   }
 
   async function loadCapabilities() {
     try {
       capabilities.value = await getCapabilities()
-    } catch (error) {
-      console.error('Failed to load capabilities:', error)
+    } catch (err) {
+      console.error('Failed to load capabilities:', err)
     }
   }
 
@@ -79,8 +76,8 @@ export const useSettingsStore = defineStore('settings', () => {
       const response = await getModels(refresh)
       models.value = response.models
       modelsSource.value = response.source
-    } catch (error) {
-      console.error('Failed to load models:', error)
+    } catch (err) {
+      console.error('Failed to load models:', err)
     }
   }
 

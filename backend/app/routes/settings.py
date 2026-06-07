@@ -9,7 +9,7 @@ from app.schemas import SettingsPayload, HealthResponse, PromptTestResponse, Pro
 from app.state import set_provider, get_provider
 from app.configs import settings
 from app.storage import save_provider_config
-from app.database import cache_models, get_cached_models
+from app.repositories.model_cache_repository import ModelCacheRepository
 from app.providers.config import PROVIDERS, PROVIDER_METADATA, BASE_URL_TO_PROVIDER, OPENAI_COMPATIBLE_PROVIDERS, PROVIDER_MODEL_NAMES
 from app.configs.free_models import is_model_free, get_model_group, MODEL_GROUPS
 from loguru import logger
@@ -20,8 +20,11 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 def init_provider(provider: str, api_key: str | None, model: str | None, base_url: str | None) -> None:
     """Initialize the active LLM provider with the given credentials.
 
+    Uses ProviderFactory to create the appropriate provider instance
+    based on the registered providers.
+
     Args:
-        provider: Provider identifier ("openrouter", "vsellm", "anthropic", "groq", "cerebras", "qwen", "mistral", "gemini", "mock").
+        provider: Provider identifier (e.g., "openrouter", "vsellm", "mock").
         api_key: API key for the selected provider.
         model: Model name to use.
         base_url: Optional custom base URL.
@@ -29,81 +32,21 @@ def init_provider(provider: str, api_key: str | None, model: str | None, base_ur
     Raises:
         ValueError: If the provider is unknown or the API key is missing.
     """
-    if provider == "mock" or settings.mock_mode:
-        from app.providers.mock import MockProvider
-        set_provider(MockProvider())
-    elif provider == "openrouter":
-        if not api_key:
-            raise ValueError("api_key required for OpenRouter")
-        from app.providers.openrouter import OpenRouterProvider
-        set_provider(OpenRouterProvider(
-            api_key=api_key,
-            model=model or "qwen/qwen3-235b-a22b:free",
-        ))
-    elif provider == "vsellm":
-        if not api_key:
-            raise ValueError("api_key required for VseLLM")
-        from app.providers.vsellm import VseLLMProvider
-        set_provider(VseLLMProvider(
-            api_key=api_key,
-            model=model or "openai/gpt-4o-mini",
-        ))
-    elif provider == "anthropic":
-        if not api_key:
-            raise ValueError("api_key required for Anthropic")
-        from app.providers.anthropic import AnthropicProvider
-        set_provider(AnthropicProvider(
-            api_key=api_key,
-            model=model or "claude-3-5-sonnet-20241022",
-        ))
-    elif provider == "groq":
-        if not api_key:
-            raise ValueError("api_key required for Groq")
-        from app.providers.groq import GroqProvider
-        set_provider(GroqProvider(
-            api_key=api_key,
-            model=model or "llama-3.1-70b-versatile",
-        ))
-    elif provider == "cerebras":
-        if not api_key:
-            raise ValueError("api_key required for Cerebras")
-        from app.providers.cerebras import CerebrasProvider
-        set_provider(CerebrasProvider(
-            api_key=api_key,
-            model=model or "llama3.1-70b",
-        ))
-    elif provider == "qwen":
-        if not api_key:
-            raise ValueError("api_key required for Qwen")
-        from app.providers.qwen import QwenProvider
-        set_provider(QwenProvider(
-            api_key=api_key,
-            model=model or "qwen-max",
-        ))
-    elif provider == "mistral":
-        if not api_key:
-            raise ValueError("api_key required for Mistral")
-        from app.providers.mistral import MistralProvider
-        set_provider(MistralProvider(
-            api_key=api_key,
-            model=model or "mistral-large-latest",
-        ))
-    elif provider == "gemini":
-        if not api_key:
-            raise ValueError("api_key required for Gemini")
-        from app.providers.gemini import GeminiProvider
-        set_provider(GeminiProvider(
-            api_key=api_key,
-            model=model or "gemini-2.0-flash-exp",
-        ))
-    elif provider == "local_llm":
-        from app.providers.local_llm import LocalLLMProvider
-        set_provider(LocalLLMProvider(
-            model=model or "phi-3-mini-3.8b",
-        ))
-    else:
-        raise ValueError(f"Unknown provider: {provider}")
-    logger.info(f"Provider set to: {provider}")
+    from app.providers.factory import ProviderFactory, ProviderConfig
+    import app.providers
+    app.providers.register_all()
+
+    if settings.mock_mode:
+        provider = "mock"
+
+    config = ProviderConfig(
+        provider=provider,
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+    )
+    instance = ProviderFactory.create(config)
+    set_provider(instance)
 
 
 @router.post("/provider")
@@ -307,7 +250,7 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
     """
     if provider:
         # For non-active providers, try cache first
-        cached = await get_cached_models(provider)
+        cached = await ModelCacheRepository.get(provider)
         if cached and not refresh:
             models = cached
             if free:
@@ -348,7 +291,7 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
                     temp_provider = get_provider()
                     if temp_provider:
                         models = await temp_provider.list_models()
-                        await cache_models(provider, models)
+                        await ModelCacheRepository.cache(provider, models)
                         if free:
                             models = [m for m in models if m.get("is_free", False)]
                         # Restore original provider
@@ -372,7 +315,7 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
 
     # Try cache first unless refresh is forced
     if not refresh:
-        cached = await get_cached_models(provider_name)
+        cached = await ModelCacheRepository.get(provider_name)
         if cached:
             models = cached
             if free:
@@ -402,7 +345,7 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
             models_dict = [m for m in models_dict if m.get("is_free", False)]
 
         # Cache the results
-        await cache_models(provider_name, models_dict)
+        await ModelCacheRepository.cache(provider_name, models_dict)
 
         return {"models": models_dict, "source": "api"}
     except Exception as e:
@@ -441,11 +384,10 @@ async def switch_model(model: str):
         # Update provider with new model
         provider.model = model
         # Save to storage
-        from app.storage import get_provider_config
-        config = await get_provider_config()
+        from app.storage import load_provider_config
+        config = load_provider_config()
         if config:
-            config["model"] = model
-            await save_provider_config(config)
+            save_provider_config(config["provider"], config.get("api_key"), model, config.get("base_url"))
         return {"success": True, "model": model}
     except Exception as e:
         logger.error(f"Failed to switch model: {e}")

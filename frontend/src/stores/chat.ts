@@ -2,10 +2,11 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { nanoid } from 'nanoid'
 import type { Chat, ChatMessage, ChatParams, ContentPart, MessageContent } from '@/types'
-import { streamChat, buildStreamRequest } from '@/api/chat'
+import { buildStreamRequest } from '@/api/chat'
 import { listChats, createChat as apiCreateChat, renameChat as apiRenameChat, addMessageToChat, reorderChats as apiReorderChats, clearChatMessages, deleteChat as apiDeleteChat, getChatMessages } from '@/api/chats'
-import { switchModel, getModels } from '@/api/settings'
+import { getModels } from '@/api/settings'
 import { useSettingsStore } from '@/stores/settings'
+import { useStreamChat } from '@/composables/useStreamChat'
 
 function filterServiceMessages(content: string): string {
   if (typeof content !== 'string') return content
@@ -36,14 +37,13 @@ export const useChatStore = defineStore('chat', () => {
   const chats = ref<Chat[]>([])
   const activeChatId = ref<string | null>(null)
   const params = ref<ChatParams>({ ...DEFAULT_PARAMS })
-  const streaming = ref(false)
   const error = ref<string | null>(null)
   const loading = ref(false)
 
-  let abortController: AbortController | null = null
-
   const settingsStore = useSettingsStore()
   const needsProvider = computed(() => !settingsStore.isConfigured)
+  const stream = useStreamChat()
+  const streaming = stream.streaming
 
   // ── Computed ──────────────────────────────────────
   const activeChat = computed<Chat | null>(
@@ -182,141 +182,88 @@ export const useChatStore = defineStore('chat', () => {
     )
 
     const currentModel = settingsStore.health?.model ?? settingsStore.activeModel ?? settingsStore.activeProvider ?? ''
-    abortController = new AbortController()
-    streaming.value = true
     const userMsg = addMessage('user', userContent)
     const assistantMsg = addMessage('assistant', '', currentModel)
     assistantMsg.createdAt = userMsg.createdAt + 1
 
-    // Save user message immediately (incremental — no DELETE/INSERT)
+    // Save user message immediately
     if (activeChatId.value) {
-      addMessageToChat(activeChatId.value, userMsg).catch(error => console.error('[Chat] failed to save user msg:', error))
+      addMessageToChat(activeChatId.value, userMsg).catch(e => console.error('[Chat] failed to save user msg:', e))
     }
 
-    const MAX_RETRIES = 3
-    let attempt = 0
-    let lastError: Error | null = null
+    // Execute streaming with retry via composable
+    const result = await stream.execute(request, {
+      onToken: (token) => { assistantMsg.content += token },
+    })
 
-    while (attempt < MAX_RETRIES) {
-      attempt++
-      assistantMsg.content = ''
-      lastError = null
+    if (result.success) {
+      // Save completed assistant message
+      if (activeChatId.value) {
+        addMessageToChat(activeChatId.value, assistantMsg).catch(e => console.error('[Chat] failed to save assistant msg:', e))
+      }
+      return
+    }
 
-      let succeeded = false
-      await new Promise<void>((resolve) => {
-        streamChat(
-          request,
-          (token) => { assistantMsg.content += token },
-          () => {
-            succeeded = true
-            resolve()
-          },
-          (error) => {
-            if (error.name === 'AbortError') {
-              succeeded = true // user stopped intentionally
-            } else {
-              console.error(`[Chat] attempt ${attempt} error:`, error.message)
-              lastError = error
-            }
-            resolve()
-          },
-          abortController!.signal,
-        )
-      })
-
-      if (succeeded) {
-        streaming.value = false
-        abortController = null
-        // Save completed assistant message incrementally
-        if (activeChatId.value) {
-          addMessageToChat(activeChatId.value, assistantMsg).catch(error => console.error('[Chat] failed to save assistant msg:', error))
-        }
+    // Handle balance errors — suggest free model switch
+    if (result.isBalanceError) {
+      const freeModel = await findFreeModelAlternative(currentModel)
+      if (freeModel) {
+        assistantMsg.content = `Недостаточно средств на балансе. Вы можете переключиться на бесплатную версию модели: ${freeModel.name}.`
+        assistantMsg.id = `balance-error-${nanoid()}`
+        assistantMsg.freeModelId = freeModel.id
+        persistAssistantMsg(assistantMsg)
         return
       }
-
-      if (attempt < MAX_RETRIES) {
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        abortController = new AbortController()
-      }
     }
 
-    // All attempts failed
+    // Generic failure
     const modelName = currentModel || 'AI-модель'
-    
-    // Check if error is related to balance/credits
-    const isBalanceError = lastError?.message?.toLowerCase().includes('balance') || 
-                          lastError?.message?.toLowerCase().includes('credit') ||
-                          lastError?.message?.toLowerCase().includes('insufficient')
-    
-    if (isBalanceError) {
-      // Try to find a free model from the same group
-      try {
-        const { models } = await getModels()
-        const currentModelData = models.find(m => m.id === currentModel)
-        const modelGroupId = currentModelData?.model_group_id
-        
-        if (modelGroupId) {
-          const freeModel = models.find(m => m.model_group_id === modelGroupId && m.is_free)
-          if (freeModel) {
-            assistantMsg.content = `Недостаточно средств на балансе. Вы можете переключиться на бесплатную версию модели: ${freeModel.name}.`
-            // Store the free model ID for potential switching
-            assistantMsg.id = `balance-error-${nanoid()}`
-            assistantMsg.rowid = freeModel.id // Store free model ID in rowid temporarily
-            streaming.value = false
-            abortController = null
-            if (activeChatId.value) {
-              addMessageToChat(activeChatId.value, assistantMsg).catch(error => console.error('[Chat] failed to save error msg:', error))
-            }
-            return
-          }
-        }
-      } catch (e) {
-        console.error('[Chat] failed to find free model:', e)
-      }
-    }
-    
     assistantMsg.content = `Сервис «${modelName}» сейчас недоступен. Попробуйте позже или выберите другой сервис в настройках.`
-    console.error('[Chat] all retries failed:', (lastError as Error | null)?.message)
-    streaming.value = false
-    abortController = null
+    persistAssistantMsg(assistantMsg)
+  }
+
+  /** Try to find a free model in the same group as the current one. */
+  async function findFreeModelAlternative(currentModelId: string) {
+    try {
+      const { models } = await getModels()
+      const currentModelData = models.find(m => m.id === currentModelId)
+      const groupId = currentModelData?.model_group_id
+      if (groupId) {
+        return models.find(m => m.model_group_id === groupId && m.is_free) ?? null
+      }
+    } catch (e) {
+      console.error('[Chat] failed to find free model:', e)
+    }
+    return null
+  }
+
+  /** Persist assistant message to backend (fire-and-forget). */
+  function persistAssistantMsg(msg: ChatMessage) {
     if (activeChatId.value) {
-      addMessageToChat(activeChatId.value, assistantMsg).catch(error => console.error('[Chat] failed to save error msg:', error))
+      addMessageToChat(activeChatId.value, msg).catch(e => console.error('[Chat] failed to save msg:', e))
     }
   }
 
   function stopStreaming() {
-    abortController?.abort()
-    streaming.value = false
+    stream.abort()
   }
 
   async function loadChats() {
+    loading.value = true
     try {
-      loading.value = true
-      
-      // Load from backend as primary source
-      try {
-        const chatList = await listChats()
-        chats.value = chatList
-        if (chatList.length > 0) {
-          // Set active chat if not set or invalid
-          if (!activeChatId.value || !chatList.find(chat => chat.id === activeChatId.value)) {
-            activeChatId.value = chatList[0].id
-          }
-          // Load messages for active chat
-          const messages = await getChatMessages(activeChatId.value, 10)
-          const chatIndex = chats.value.findIndex(chat => chat.id === activeChatId.value)
-          if (chatIndex !== -1) {
-            chats.value[chatIndex].messages = messages
-          }
+      const chatList = await listChats()
+      chats.value = chatList
+      if (chatList.length > 0) {
+        if (!activeChatId.value || !chatList.find(c => c.id === activeChatId.value)) {
+          activeChatId.value = chatList[0].id
         }
-      } catch (error) {
-        console.error('Failed to load chats from backend:', error)
-        // Don't fallback to localStorage - show error instead
-        error.value = 'Failed to load chats from server'
+        const msgs = await getChatMessages(activeChatId.value!, 10)
+        const idx = chats.value.findIndex(c => c.id === activeChatId.value)
+        if (idx !== -1) chats.value[idx].messages = msgs
       }
-    } catch (error) {
+    } catch (err) {
       error.value = 'Не удалось загрузить чаты'
-      console.error('Failed to load chats:', error)
+      console.error('Failed to load chats:', err)
     } finally {
       loading.value = false
     }
@@ -325,15 +272,13 @@ export const useChatStore = defineStore('chat', () => {
   async function loadMoreMessages(before: number) {
     if (!activeChatId.value) return
     try {
-      const messages = await getChatMessages(activeChatId.value, 10, before)
-      if (messages.length > 0) {
-        const chatIndex = chats.value.findIndex(chat => chat.id === activeChatId.value)
-        if (chatIndex !== -1) {
-          chats.value[chatIndex].messages = [...messages, ...chats.value[chatIndex].messages]
-        }
+      const older = await getChatMessages(activeChatId.value, 10, before)
+      if (older.length > 0) {
+        const idx = chats.value.findIndex(c => c.id === activeChatId.value)
+        if (idx !== -1) chats.value[idx].messages = [...older, ...chats.value[idx].messages]
       }
-    } catch (error) {
-      console.error('Failed to load more messages:', error)
+    } catch (err) {
+      console.error('Failed to load more messages:', err)
     }
   }
 

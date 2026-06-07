@@ -93,7 +93,7 @@
         <div class="model-actions">
           <button 
             v-if="!model.downloaded" 
-            @click="downloadModel(modelId)"
+            @click="downloadModel(String(modelId))"
             :disabled="!canRunModel(model) || downloading"
             class="btn btn-primary"
           >
@@ -101,7 +101,7 @@
           </button>
           <button 
             v-if="model.downloaded" 
-            @click="deleteModel(modelId)"
+            @click="deleteModel(String(modelId))"
             class="btn btn-danger"
           >
             Удалить

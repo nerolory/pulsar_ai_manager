@@ -1,44 +1,92 @@
 """Mistral AI provider using native SDK."""
 
-from typing import AsyncIterator, List
 import asyncio
+from typing import AsyncIterator, List
+
+from loguru import logger
 from mistralai import Mistral
+
 from app.providers.base import BaseLLMProvider
+from app.providers.factory import ProviderFactory
 from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 from app.exceptions import (
     AuthenticationError,
     RateLimitError,
     ModelNotFoundError,
     NetworkError,
-    ProviderUnavailableError,
     ProviderError,
 )
-from loguru import logger
 
 
+def _map_mistral_error(error: Exception, model: str) -> ProviderError:
+    """Map a Mistral SDK exception to a typed ProviderError.
+
+    Args:
+        error: The original exception.
+        model: Current model name for error messages.
+
+    Returns:
+        Typed ProviderError subclass.
+    """
+    error_str = str(error).lower()
+    if "authentication" in error_str or "invalid api key" in error_str:
+        logger.error(f"Mistral authentication error: {error}")
+        return AuthenticationError("Неверный API ключ Mistral. Проверьте настройки.")
+    if "rate limit" in error_str or "429" in error_str:
+        logger.error(f"Mistral rate limit error: {error}")
+        return RateLimitError("Превышен лимит запросов Mistral. Попробуйте позже.")
+    if "not found" in error_str or "404" in error_str:
+        logger.error(f"Mistral model not found: {error}")
+        return ModelNotFoundError(f"Модель {model} не найдена. Обновите список моделей.")
+    if "timeout" in error_str or "connection" in error_str:
+        logger.error(f"Mistral network error: {error}")
+        return NetworkError("Ошибка сети при подключении к Mistral.")
+    logger.error(f"Mistral unexpected error: {error}")
+    return ProviderError(f"Ошибка провайдера Mistral: {error}")
+
+
+@ProviderFactory.register(name="mistral", default_model="mistral-large-latest")
 class MistralProvider(BaseLLMProvider):
-    """Mistral AI provider with native SDK support."""
+    """Mistral AI provider with native SDK support.
 
-    def __init__(self, api_key: str, model: str = "mistral-large-latest"):
+    Uses the official mistralai SDK with synchronous streaming
+    wrapped in asyncio.to_thread for non-blocking operation.
+    """
+
+    def __init__(self, api_key: str, model: str = "mistral-large-latest", **kwargs):
+        """Initialize Mistral provider.
+
+        Args:
+            api_key: Mistral API key.
+            model: Model identifier.
+        """
         self._client = Mistral(api_key=api_key)
         self.model = model
 
     async def chat(self, request: ChatRequest) -> AsyncIterator[str]:
-        """Stream chat completion using Mistral native API."""
+        """Stream chat completion using Mistral native API.
+
+        Args:
+            request: Chat request with messages and parameters.
+
+        Yields:
+            Token strings from the API.
+
+        Raises:
+            AuthenticationError: Invalid API key.
+            RateLimitError: Rate limit exceeded.
+            ModelNotFoundError: Model not available.
+            NetworkError: Connection issues.
+            ProviderError: Other failures.
+        """
         try:
-            # Convert messages to Mistral format
             messages = []
             for msg in request.messages:
-                if msg.role == "system":
-                    messages.append({"role": "system", "content": msg.content})
-                else:
-                    messages.append({"role": msg.role, "content": msg.content})
+                messages.append({"role": msg.role, "content": msg.content})
 
-            # Add system prompt if provided
             if request.system_prompt:
                 messages.insert(0, {"role": "system", "content": request.system_prompt})
 
-            # Stream response (run in thread to avoid blocking)
             def _stream():
                 return self._client.chat.stream(
                     model=self.model,
@@ -54,23 +102,10 @@ class MistralProvider(BaseLLMProvider):
                 if chunk.data.choices[0].delta.content:
                     yield chunk.data.choices[0].delta.content
 
+        except (AuthenticationError, RateLimitError, ModelNotFoundError, NetworkError, ProviderError):
+            raise
         except Exception as e:
-            error_str = str(e).lower()
-            if "authentication" in error_str or "invalid api key" in error_str:
-                logger.error(f"Mistral authentication error: {e}")
-                raise AuthenticationError("Неверный API ключ Mistral. Проверьте настройки.")
-            elif "rate limit" in error_str or "429" in error_str:
-                logger.error(f"Mistral rate limit error: {e}")
-                raise RateLimitError("Превышен лимит запросов Mistral. Попробуйте позже.")
-            elif "not found" in error_str or "404" in error_str:
-                logger.error(f"Mistral model not found: {e}")
-                raise ModelNotFoundError(f"Модель {self.model} не найдена. Обновите список моделей.")
-            elif "timeout" in error_str or "connection" in error_str:
-                logger.error(f"Mistral network error: {e}")
-                raise NetworkError("Ошибка сети при подключении к Mistral.")
-            else:
-                logger.error(f"Mistral unexpected error: {e}")
-                raise ProviderError(f"Ошибка провайдера Mistral: {str(e)}")
+            raise _map_mistral_error(e, self.model) from e
 
     async def health_check(self) -> bool:
         """Check if Mistral API is accessible."""

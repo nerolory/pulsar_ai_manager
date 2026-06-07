@@ -5,9 +5,11 @@ model downloading, and communication with the local inference engine.
 """
 
 from typing import AsyncIterator, List, Optional
+
 from loguru import logger
 
 from app.providers.base import BaseLLMProvider
+from app.providers.factory import ProviderFactory
 from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 from app.system_check import get_system_specs, check_hardware_tier, can_run_model
 from app.configs.local_models import (
@@ -19,10 +21,11 @@ from app.configs.local_models import (
 from app.model_downloader import is_model_downloaded, download_model
 
 
+@ProviderFactory.register(name="local_llm", default_model="phi-3-mini-3.8b", requires_api_key=False)
 class LocalLLMProvider(BaseLLMProvider):
     """Provider for running local LLM models on the user's machine."""
-    
-    def __init__(self, model: str = "phi-3-mini-3.8b"):
+
+    def __init__(self, model: str = "phi-3-mini-3.8b", **kwargs):
         """Initialize local LLM provider.
         
         Args:

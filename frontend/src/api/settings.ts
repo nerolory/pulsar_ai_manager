@@ -28,9 +28,7 @@ export async function getProviderConfig(): Promise<{ provider: ProviderName | nu
 }
 
 export async function getProviders(): Promise<Record<string, ProviderMetadata>> {
-  const response = await api.get('/settings/providers')
-  console.log('getProviders response:', response)
-  return response
+  return await api.get('/settings/providers')
 }
 
 export async function getHealth(): Promise<HealthStatus> {
@@ -57,7 +55,7 @@ export async function getModels(refresh = false, provider?: string): Promise<{ m
 }
 
 export async function refreshModels(): Promise<{ models: ModelInfo[]; source: string }> {
-  return await api.post('/settings/refresh-models')
+  return await api.post('/settings/refresh-models', {})
 }
 
 export async function detectProvider(baseUrl: string): Promise<{ provider: string | null; detected: boolean; compatible: boolean; message?: string }> {
@@ -144,7 +142,7 @@ export async function downloadLocalModel(modelId: string): Promise<{
   success: boolean
   message: string
 }> {
-  return await api.post(`/admin/local-llm/download/${modelId}`)
+  return await api.post(`/admin/local-llm/download/${modelId}`, {})
 }
 
 export async function deleteLocalModel(modelId: string): Promise<{
