@@ -18,6 +18,7 @@ router = APIRouter(prefix="/chats")
 
 class ChatResponse(BaseModel):
     """Serialised chat summary returned to the client."""
+
     id: str
     title: str
     createdAt: int
@@ -26,6 +27,7 @@ class ChatResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     """Serialised chat message returned to the client."""
+
     id: str
     role: str
     content: Union[str, list]
@@ -35,12 +37,14 @@ class MessageResponse(BaseModel):
 
 class ChatCreateRequest(BaseModel):
     """Payload for creating a new chat."""
+
     title: str
     id: Optional[str] = None
 
 
 class MessageSchema(BaseModel):
     """Internal schema representing a single chat message."""
+
     id: str
     role: str
     content: Union[str, list]
@@ -71,7 +75,7 @@ def deserialize_content(content: str) -> Union[str, list]:
     Returns:
         Union[str, list]: Parsed list or the original string.
     """
-    if content and content.startswith('['):
+    if content and content.startswith("["):
         try:
             return json.loads(content)
         except Exception:
@@ -81,6 +85,7 @@ def deserialize_content(content: str) -> Union[str, list]:
 
 class ChatUpdateRequest(BaseModel):
     """Payload for updating an existing chat with new messages."""
+
     id: str
     title: str
     messages: List[MessageSchema]
@@ -88,16 +93,19 @@ class ChatUpdateRequest(BaseModel):
 
 class ChatRenameRequest(BaseModel):
     """Payload for renaming a chat."""
+
     title: str
 
 
 class ReorderRequest(BaseModel):
     """Payload for reordering the chat list."""
+
     ids: List[str]
 
 
 class AddMessageRequest(BaseModel):
     """Payload for adding a single message to a chat."""
+
     id: str
     role: str
     content: Union[str, list]
@@ -122,7 +130,7 @@ async def list_chats():
                 id=chat["id"],
                 title=chat["title"],
                 createdAt=chat["created_at"],
-                updatedAt=chat["updated_at"]
+                updatedAt=chat["updated_at"],
             )
             for chat in chats
         ]
@@ -153,7 +161,7 @@ async def reorder_chats_endpoint(request: ReorderRequest):
 async def get_messages(
     chat_id: str,
     limit: Optional[int] = Query(10, description="Number of messages to load"),
-    before: Optional[int] = Query(None, description="Load messages before this rowid")
+    before: Optional[int] = Query(None, description="Load messages before this rowid"),
 ):
     """Retrieve paginated messages for a specific chat.
 
@@ -173,11 +181,13 @@ async def get_messages(
                 role=message["role"],
                 content=deserialize_content(message["content"]),
                 createdAt=message["created_at"],
-                model=message.get("model")
+                model=message.get("model"),
             )
             for message in messages
         ]
-        logger.debug(f"[get_messages] chat={chat_id} count={len(response)} order={[(msg.role, msg.createdAt) for msg in response]}")
+        logger.debug(
+            f"[get_messages] chat={chat_id} count={len(response)} order={[(msg.role, msg.createdAt) for msg in response]}"
+        )
         return response
     except Exception as e:
         logger.error(f"Failed to get messages for chat {chat_id}: {e}")
@@ -196,13 +206,20 @@ async def add_message_endpoint(chat_id: str, request: AddMessageRequest):
         MessageResponse: The added message.
     """
     try:
-        await MessageRepository.add(chat_id, request.id, request.role, serialize_content(request.content), request.createdAt, request.model)
+        await MessageRepository.add(
+            chat_id,
+            request.id,
+            request.role,
+            serialize_content(request.content),
+            request.createdAt,
+            request.model,
+        )
         return MessageResponse(
             id=request.id,
             role=request.role,
             content=request.content,
             createdAt=request.createdAt,
-            model=request.model
+            model=request.model,
         )
     except Exception as e:
         logger.error(f"Failed to add message to chat {chat_id}: {e}")
@@ -222,15 +239,11 @@ async def create_chat(request: ChatCreateRequest):
     try:
         import uuid
         from datetime import datetime
+
         chat_id = request.id or str(uuid.uuid4())
         now = int(datetime.now().timestamp() * 1000)
         await ChatRepository.save(chat_id, request.title)
-        return ChatResponse(
-            id=chat_id,
-            title=request.title,
-            createdAt=now,
-            updatedAt=now
-        )
+        return ChatResponse(id=chat_id, title=request.title, createdAt=now, updatedAt=now)
     except Exception as e:
         logger.error(f"Failed to create chat: {e}")
         raise HTTPException(status_code=500, detail="Failed to create chat")
@@ -250,14 +263,17 @@ async def update_chat(chat_id: str, request: ChatUpdateRequest):
     try:
         await ChatRepository.save(chat_id, request.title)
         for msg in request.messages:
-            await MessageRepository.add(chat_id, msg.id, msg.role, serialize_content(msg.content), msg.createdAt, msg.model)
+            await MessageRepository.add(
+                chat_id, msg.id, msg.role, serialize_content(msg.content), msg.createdAt, msg.model
+            )
         from datetime import datetime
+
         now = int(datetime.now().timestamp() * 1000)
         return ChatResponse(
             id=chat_id,
             title=request.title,
             createdAt=request.messages[0].createdAt if request.messages else now,
-            updatedAt=now
+            updatedAt=now,
         )
     except Exception as e:
         logger.error(f"Failed to update chat {chat_id}: {e}")
@@ -278,6 +294,7 @@ async def rename_chat(chat_id: str, request: ChatRenameRequest):
     try:
         await ChatRepository.save(chat_id, request.title)
         from datetime import datetime
+
         now = int(datetime.now().timestamp() * 1000)
         return ChatResponse(id=chat_id, title=request.title, createdAt=now, updatedAt=now)
     except Exception as e:

@@ -37,6 +37,7 @@ async def chat_stream(request: ChatRequest):
     messages = list(request.messages)
     if request.system_prompt:
         from app.schemas import ChatMessage
+
         messages = [ChatMessage(role="system", content=request.system_prompt)] + messages
 
     # If context disabled — only keep last user message
@@ -47,8 +48,22 @@ async def chat_stream(request: ChatRequest):
 
     request_to_send = request.model_copy(update={"messages": messages})
 
-    logger.info(f"Messages to provider ({len(messages)}): " +
-                str([{"role": message.role, "content": (message.content[:40] if isinstance(message.content, str) else f"[{len(message.content)} parts]")} for message in messages]))
+    logger.info(
+        f"Messages to provider ({len(messages)}): "
+        + str(
+            [
+                {
+                    "role": message.role,
+                    "content": (
+                        message.content[:40]
+                        if isinstance(message.content, str)
+                        else f"[{len(message.content)} parts]"
+                    ),
+                }
+                for message in messages
+            ]
+        )
+    )
 
     async def token_generator():
         """Yield tokens from the provider, catching errors gracefully."""

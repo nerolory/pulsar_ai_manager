@@ -73,9 +73,13 @@ class GeminiProvider(BaseLLMProvider):
 
             for msg in request.messages:
                 if msg.role == "system":
-                    system_prompt = msg.content if isinstance(msg.content, str) else str(msg.content)
+                    system_prompt = (
+                        msg.content if isinstance(msg.content, str) else str(msg.content)
+                    )
                 elif msg.role == "user":
-                    messages.append(msg.content if isinstance(msg.content, str) else str(msg.content))
+                    messages.append(
+                        msg.content if isinstance(msg.content, str) else str(msg.content)
+                    )
                 elif msg.role == "assistant":
                     messages.append(f"Assistant: {msg.content}")
 
@@ -103,7 +107,13 @@ class GeminiProvider(BaseLLMProvider):
                 if chunk.text:
                     yield chunk.text
 
-        except (AuthenticationError, RateLimitError, ModelNotFoundError, NetworkError, ProviderError):
+        except (
+            AuthenticationError,
+            RateLimitError,
+            ModelNotFoundError,
+            NetworkError,
+            ProviderError,
+        ):
             raise
         except Exception as e:
             raise _map_gemini_error(e, self.model) from e
@@ -111,8 +121,10 @@ class GeminiProvider(BaseLLMProvider):
     async def health_check(self) -> bool:
         """Check if Gemini API is accessible."""
         try:
+
             def _check():
                 return self._genai_model.generate_content("test", max_output_tokens=10)
+
             await asyncio.to_thread(_check)
             return True
         except Exception as e:
@@ -136,19 +148,23 @@ class GeminiProvider(BaseLLMProvider):
 
     async def list_models(self) -> List[ModelInfo]:
         try:
+
             def _list():
                 return genai.list_models()
+
             models = await asyncio.to_thread(_list)
             result = []
             for model in models:
-                if 'generateContent' in model.supported_generation_methods:
-                    result.append(ModelInfo(
-                        id=model.name,
-                        name=model.display_name or model.name,
-                        context_length=getattr(model, 'context_length', 4096),
-                        pricing=None,
-                        free_tier=True,
-                    ))
+                if "generateContent" in model.supported_generation_methods:
+                    result.append(
+                        ModelInfo(
+                            id=model.name,
+                            name=model.display_name or model.name,
+                            context_length=getattr(model, "context_length", 4096),
+                            pricing=None,
+                            free_tier=True,
+                        )
+                    )
             return result
         except Exception as e:
             logger.error(f"[Gemini] Failed to list models: {e}")

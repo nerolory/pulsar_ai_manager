@@ -5,19 +5,33 @@ running prompt compliance tests, and checking provider health status.
 """
 
 from fastapi import APIRouter, HTTPException
-from app.schemas import SettingsPayload, HealthResponse, PromptTestResponse, ProviderCapabilities, ModelInfo
+from app.schemas import (
+    SettingsPayload,
+    HealthResponse,
+    PromptTestResponse,
+    ProviderCapabilities,
+    ModelInfo,
+)
 from app.state import set_provider, get_provider
 from app.configs import settings
 from app.storage import save_provider_config
 from app.repositories.model_cache_repository import ModelCacheRepository
-from app.providers.config import PROVIDERS, PROVIDER_METADATA, BASE_URL_TO_PROVIDER, OPENAI_COMPATIBLE_PROVIDERS, PROVIDER_MODEL_NAMES
+from app.providers.config import (
+    PROVIDERS,
+    PROVIDER_METADATA,
+    BASE_URL_TO_PROVIDER,
+    OPENAI_COMPATIBLE_PROVIDERS,
+    PROVIDER_MODEL_NAMES,
+)
 from app.configs.free_models import is_model_free, get_model_group, MODEL_GROUPS
 from loguru import logger
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
-def init_provider(provider: str, api_key: str | None, model: str | None, base_url: str | None) -> None:
+def init_provider(
+    provider: str, api_key: str | None, model: str | None, base_url: str | None
+) -> None:
     """Initialize the active LLM provider with the given credentials.
 
     Uses ProviderFactory to create the appropriate provider instance
@@ -34,6 +48,7 @@ def init_provider(provider: str, api_key: str | None, model: str | None, base_ur
     """
     from app.providers.factory import ProviderFactory, ProviderConfig
     import app.providers
+
     app.providers.register_all()
 
     if settings.mock_mode:
@@ -64,6 +79,7 @@ async def configure_provider(payload: SettingsPayload):
     """
     try:
         from app.storage import load_provider_config_for
+
         api_key = payload.api_key
         if not api_key:
             saved = load_provider_config_for(payload.provider)
@@ -87,11 +103,16 @@ async def get_provider_config():
         dict: Active provider details plus a map of all previously saved providers.
     """
     from app.storage import load_provider_config, load_provider_config_for, _load_yaml
+
     config = load_provider_config()
     data = _load_yaml()
     all_providers = {
-        provider_name: {"api_key": data[provider_name].get("api_key"), "model": data[provider_name].get("model")}
-        for provider_name in PROVIDERS if provider_name in data
+        provider_name: {
+            "api_key": data[provider_name].get("api_key"),
+            "model": data[provider_name].get("model"),
+        }
+        for provider_name in PROVIDERS
+        if provider_name in data
     }
     if not config:
         return {"provider": None, "model": None, "api_key": None, "all_providers": all_providers}
@@ -154,7 +175,7 @@ async def detect_provider(base_url: str):
 
 
 _TEST_SYSTEM = "Respond with exactly one word: YES. Nothing else."
-_TEST_USER   = "Are you able to follow instructions?"
+_TEST_USER = "Are you able to follow instructions?"
 _TEST_MARKER = "YES"
 
 
@@ -173,6 +194,7 @@ async def test_prompt():
         raise HTTPException(status_code=503, detail="No provider configured")
 
     from app.schemas import ChatRequest, ChatMessage
+
     request = ChatRequest(
         messages=[
             ChatMessage(role="system", content=_TEST_SYSTEM),
@@ -265,7 +287,11 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
                 if free:
                     models = [m for m in models if m.get("is_free", False)]
                 return {"models": models, "source": "cache"}
-            return {"models": [], "source": "cache", "message": "No cached models available. Please activate this provider first."}
+            return {
+                "models": [],
+                "source": "cache",
+                "message": "No cached models available. Please activate this provider first.",
+            }
         # Provider is active, fetch from API
         provider_name = type(provider_instance).__name__.replace("Provider", "").lower()
         if provider_name != provider:
@@ -278,15 +304,13 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
             # If no cache and provider is not active, try to initialize it temporarily
             # This allows fetching models for vsellm without activating it
             from app.storage import load_provider_config
+
             config = load_provider_config()
             if config and config.get("provider") == provider:
                 # Temporarily initialize the provider to fetch models
                 try:
                     init_provider(
-                        provider,
-                        config.get("api_key"),
-                        config.get("model"),
-                        config.get("base_url")
+                        provider, config.get("api_key"), config.get("model"), config.get("base_url")
                     )
                     temp_provider = get_provider()
                     if temp_provider:
@@ -300,13 +324,21 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
                                 config.get("provider"),
                                 config.get("api_key"),
                                 config.get("model"),
-                                config.get("base_url")
+                                config.get("base_url"),
                             )
                         return {"models": models, "source": "api"}
                 except Exception as e:
                     logger.error(f"Failed to fetch models for provider {provider}: {e}")
-                    return {"models": [], "source": "cache", "message": f"Failed to fetch models: {str(e)}"}
-            return {"models": [], "source": "cache", "message": "No cached models available. Please activate this provider first."}
+                    return {
+                        "models": [],
+                        "source": "cache",
+                        "message": f"Failed to fetch models: {str(e)}",
+                    }
+            return {
+                "models": [],
+                "source": "cache",
+                "message": "No cached models available. Please activate this provider first.",
+            }
     else:
         provider_instance = get_provider()
         if provider_instance is None:
@@ -326,11 +358,11 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
     try:
         models = await provider_instance.list_models()
         models_dict = [model.model_dump() for model in models]
-        
+
         # Get provider balance if available
         balance_info = await provider_instance.check_balance()
         provider_balance = balance_info.get("balance") if balance_info else None
-        
+
         # Add free model metadata and balance
         for model in models_dict:
             model_id = model.get("id", "")
@@ -339,7 +371,7 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
             # Add provider balance to each model (for providers with balance API)
             if provider_balance is not None:
                 model["balance"] = provider_balance
-        
+
         # Filter by free if requested
         if free:
             models_dict = [m for m in models_dict if m.get("is_free", False)]
@@ -379,15 +411,18 @@ async def switch_model(model: str):
     provider = get_provider()
     if provider is None:
         raise HTTPException(status_code=503, detail="No provider configured")
-    
+
     try:
         # Update provider with new model
         provider.model = model
         # Save to storage
         from app.storage import load_provider_config
+
         config = load_provider_config()
         if config:
-            save_provider_config(config["provider"], config.get("api_key"), model, config.get("base_url"))
+            save_provider_config(
+                config["provider"], config.get("api_key"), model, config.get("base_url")
+            )
         return {"success": True, "model": model}
     except Exception as e:
         logger.error(f"Failed to switch model: {e}")

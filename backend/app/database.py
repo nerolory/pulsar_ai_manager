@@ -9,10 +9,11 @@ from app.paths import DB_PATH
 from app.paths import BASE_DIR
 from app.paths import MIGRATIONS_DIR
 
+
 async def init_db() -> None:
     """Initialize database with tables and indexes"""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    
+
     async with aiosqlite.connect(DB_PATH) as db:
         # Create schema_version table for migration tracking
         await db.execute("""
@@ -22,12 +23,12 @@ async def init_db() -> None:
                 description TEXT
             )
         """)
-        
+
         await db.commit()
-    
+
     # Run pending migrations
     await run_pending_migrations()
-    
+
     # Create tables (if not already created by migrations)
     async with aiosqlite.connect(DB_PATH) as db:
         # Create chats table
@@ -39,7 +40,7 @@ async def init_db() -> None:
                 updated_at INTEGER NOT NULL
             )
         """)
-        
+
         # Create messages table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS messages (
@@ -52,23 +53,25 @@ async def init_db() -> None:
                 FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
             )
         """)
-        
+
         # Create indexes for performance
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_messages_chat_created 
             ON messages(chat_id, created_at DESC)
         """)
-        
+
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_chats_updated 
             ON chats(updated_at DESC)
         """)
-        
+
         # Migration: add sort_order column if missing
         try:
             await db.execute("ALTER TABLE chats ADD COLUMN sort_order INTEGER DEFAULT 0")
             await db.commit()
-            await db.execute("UPDATE chats SET sort_order = rowid WHERE sort_order = 0 OR sort_order IS NULL")
+            await db.execute(
+                "UPDATE chats SET sort_order = rowid WHERE sort_order = 0 OR sort_order IS NULL"
+            )
             await db.commit()
             logger.info("Migration: sort_order column added")
         except Exception:
@@ -81,21 +84,21 @@ async def init_db() -> None:
             logger.info("Migration: daily_limit column added to model_cache")
         except Exception:
             pass  # column already exists
-        
+
         try:
             await db.execute("ALTER TABLE model_cache ADD COLUMN limit_tokens INTEGER")
             await db.commit()
             logger.info("Migration: limit_tokens column added to model_cache")
         except Exception:
             pass  # column already exists
-        
+
         try:
             await db.execute("ALTER TABLE model_cache ADD COLUMN balance REAL")
             await db.commit()
             logger.info("Migration: balance column added to model_cache")
         except Exception:
             pass  # column already exists
-        
+
         try:
             await db.execute("ALTER TABLE model_cache ADD COLUMN is_free BOOLEAN DEFAULT 0")
             await db.commit()
@@ -143,38 +146,50 @@ async def init_db() -> None:
         await db.commit()
         logger.info("Database initialized successfully")
 
+
 async def save_chat(chat_id: str, title: str) -> None:
     """Upsert chat metadata only — messages are saved separately via add_message"""
     now = int(datetime.now().timestamp() * 1000)
-    
+
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("""
+        await db.execute(
+            """
             INSERT INTO chats (id, title, created_at, updated_at)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 updated_at = excluded.updated_at
-        """, (chat_id, title, now, now))
+        """,
+            (chat_id, title, now, now),
+        )
         await db.commit()
         logger.debug(f"Upserted chat {chat_id}")
 
-async def add_message(chat_id: str, msg_id: str, role: str, content: str, created_at: int, model: Optional[str] = None) -> None:
+
+async def add_message(
+    chat_id: str, msg_id: str, role: str, content: str, created_at: int, model: Optional[str] = None
+) -> None:
     """Insert a single message and update chat updated_at"""
     now = int(datetime.now().timestamp() * 1000)
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("""
+        await db.execute(
+            """
             INSERT OR IGNORE INTO messages (id, chat_id, role, content, created_at, model)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (msg_id, chat_id, role, content, created_at, model))
+        """,
+            (msg_id, chat_id, role, content, created_at, model),
+        )
         await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", (now, chat_id))
         await db.commit()
         logger.debug(f"Added message {msg_id} role={role} to chat {chat_id}")
+
 
 async def update_message_content(msg_id: str, content: str) -> None:
     """Update content of existing message (e.g. completed assistant response)"""
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE messages SET content = ? WHERE id = ?", (content, msg_id))
         await db.commit()
+
 
 async def reorder_chats(ordered_ids: List[str]) -> None:
     """Update sort_order for all chats based on provided order"""
@@ -183,6 +198,7 @@ async def reorder_chats(ordered_ids: List[str]) -> None:
             await db.execute("UPDATE chats SET sort_order = ? WHERE id = ?", (index, chat_id))
         await db.commit()
         logger.debug(f"Reordered {len(ordered_ids)} chats")
+
 
 async def get_chat_list() -> List[dict]:
     """Get all chats ordered by sort_order then updated_at"""
@@ -203,7 +219,10 @@ async def get_chat_list() -> List[dict]:
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
 
-async def get_chat_messages(chat_id: str, limit: Optional[int] = None, before_rowid: Optional[int] = None) -> List[dict]:
+
+async def get_chat_messages(
+    chat_id: str, limit: Optional[int] = None, before_rowid: Optional[int] = None
+) -> List[dict]:
     """Get messages for a chat ordered by insertion (rowid). Pagination via before_rowid."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -254,6 +273,7 @@ async def get_chat_messages(chat_id: str, limit: Optional[int] = None, before_ro
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
 
+
 async def clear_chat_messages(chat_id: str) -> None:
     """Delete all messages for a chat without deleting the chat itself"""
     now = int(datetime.now().timestamp() * 1000)
@@ -262,6 +282,7 @@ async def clear_chat_messages(chat_id: str) -> None:
         await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", (now, chat_id))
         await db.commit()
         logger.debug(f"Cleared messages for chat {chat_id}")
+
 
 async def delete_chat(chat_id: str) -> bool:
     """Delete a chat and all its messages"""
@@ -272,6 +293,7 @@ async def delete_chat(chat_id: str) -> bool:
         if deleted:
             logger.debug(f"Deleted chat {chat_id}")
         return deleted
+
 
 async def get_chat_count() -> int:
     """Get total number of chats"""
@@ -287,28 +309,32 @@ async def cache_models(provider: str, models: List[dict]) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         # Delete existing cache for this provider
         await db.execute("DELETE FROM model_cache WHERE provider = ?", (provider,))
-        
+
         # Insert new models
         for model in models:
             import json
-            pricing_json = json.dumps(model.get('pricing')) if model.get('pricing') else None
-            await db.execute("""
+
+            pricing_json = json.dumps(model.get("pricing")) if model.get("pricing") else None
+            await db.execute(
+                """
                 INSERT INTO model_cache (provider, model_id, model_name, context_length, pricing, free_tier, daily_limit, limit_tokens, balance, is_free, cached_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                provider,
-                model.get('id'),
-                model.get('name', model.get('id')),
-                model.get('context_length', 4096),
-                pricing_json,
-                model.get('free_tier', False),
-                model.get('daily_limit'),
-                model.get('limit_tokens'),
-                model.get('balance'),
-                model.get('is_free', False),
-                now
-            ))
-        
+            """,
+                (
+                    provider,
+                    model.get("id"),
+                    model.get("name", model.get("id")),
+                    model.get("context_length", 4096),
+                    pricing_json,
+                    model.get("free_tier", False),
+                    model.get("daily_limit"),
+                    model.get("limit_tokens"),
+                    model.get("balance"),
+                    model.get("is_free", False),
+                    now,
+                ),
+            )
+
         await db.commit()
         logger.debug(f"Cached {len(models)} models for provider {provider}")
 
@@ -317,36 +343,42 @@ async def get_cached_models(provider: str, ttl_hours: int = 24) -> Optional[List
     """Get cached models for a provider if not expired"""
     ttl_ms = ttl_hours * 60 * 60 * 1000
     now = int(datetime.now().timestamp() * 1000)
-    
+
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute("""
+        cursor = await db.execute(
+            """
             SELECT model_id, model_name, context_length, pricing, free_tier, daily_limit, limit_tokens, balance, is_free, cached_at
             FROM model_cache
             WHERE provider = ? AND cached_at > ?
             ORDER BY model_name
-        """, (provider, now - ttl_ms))
-        
+        """,
+            (provider, now - ttl_ms),
+        )
+
         rows = await cursor.fetchall()
         if not rows:
             return None
-        
+
         import json
+
         result = []
         for row in rows:
-            pricing = json.loads(row['pricing']) if row['pricing'] else None
-            result.append({
-                'id': row['model_id'],
-                'name': row['model_name'],
-                'context_length': row['context_length'],
-                'pricing': pricing,
-                'free_tier': bool(row['free_tier']),
-                'daily_limit': row['daily_limit'],
-                'limit_tokens': row['limit_tokens'],
-                'balance': row['balance'],
-                'is_free': bool(row['is_free']),
-            })
-        
+            pricing = json.loads(row["pricing"]) if row["pricing"] else None
+            result.append(
+                {
+                    "id": row["model_id"],
+                    "name": row["model_name"],
+                    "context_length": row["context_length"],
+                    "pricing": pricing,
+                    "free_tier": bool(row["free_tier"]),
+                    "daily_limit": row["daily_limit"],
+                    "limit_tokens": row["limit_tokens"],
+                    "balance": row["balance"],
+                    "is_free": bool(row["is_free"]),
+                }
+            )
+
         logger.debug(f"Retrieved {len(result)} cached models for provider {provider}")
         return result
 
@@ -364,15 +396,15 @@ async def run_migration(version: int, description: str, sql: str) -> None:
     now = int(datetime.now().timestamp() * 1000)
     async with aiosqlite.connect(DB_PATH) as db:
         # Execute migration SQL
-        for statement in sql.split(';'):
+        for statement in sql.split(";"):
             statement = statement.strip()
             if statement:
                 await db.execute(statement)
-        
+
         # Record migration
         await db.execute(
             "INSERT INTO schema_version (version, applied_at, description) VALUES (?, ?, ?)",
-            (version, now, description)
+            (version, now, description),
         )
         await db.commit()
         logger.info(f"Migration {version} applied: {description}")
@@ -382,34 +414,38 @@ async def run_pending_migrations() -> None:
     """Run all pending migrations"""
     current_version = await get_current_schema_version()
     logger.info(f"Current schema version: {current_version}")
-    
+
     # Get all migration files
     if not MIGRATIONS_DIR.exists():
         logger.warning(f"Migrations directory not found: {MIGRATIONS_DIR}")
         return
-    
+
     migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
-    
+
     for migration_file in migration_files:
         # Extract version number from filename (e.g., 001_initial_schema.sql -> 1)
         try:
-            version_str = migration_file.stem.split('_')[0]
+            version_str = migration_file.stem.split("_")[0]
             version = int(version_str)
         except (ValueError, IndexError):
             logger.warning(f"Invalid migration filename: {migration_file.name}")
             continue
-        
+
         # Skip if already applied
         if version <= current_version:
             continue
-        
+
         # Read migration SQL
-        with open(migration_file, 'r', encoding='utf-8') as f:
+        with open(migration_file, "r", encoding="utf-8") as f:
             sql = f.read()
-        
+
         # Extract description from filename (e.g., 001_initial_schema.sql -> initial_schema)
-        description = migration_file.stem.split('_', 1)[1] if '_' in migration_file.stem else migration_file.stem
-        
+        description = (
+            migration_file.stem.split("_", 1)[1]
+            if "_" in migration_file.stem
+            else migration_file.stem
+        )
+
         # Run migration
         try:
             await run_migration(version, description, sql)
@@ -421,12 +457,14 @@ async def run_pending_migrations() -> None:
 async def upgrade_schema(from_version: int, to_version: int) -> None:
     """Upgrade schema from one version to another"""
     current_version = await get_current_schema_version()
-    
+
     if current_version != from_version:
-        logger.warning(f"Current version {current_version} does not match expected from_version {from_version}")
-    
+        logger.warning(
+            f"Current version {current_version} does not match expected from_version {from_version}"
+        )
+
     await run_pending_migrations()
-    
+
     new_version = await get_current_schema_version()
     if new_version != to_version:
         logger.warning(f"Expected version {to_version} but got {new_version}")

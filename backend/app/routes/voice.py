@@ -12,8 +12,14 @@ from app.storage import load_provider_config
 router = APIRouter(prefix="/voice", tags=["voice"])
 
 ALLOWED_AUDIO_TYPES = {
-    "audio/webm", "audio/ogg", "audio/wav", "audio/mp4",
-    "audio/mpeg", "audio/mp3", "audio/x-m4a", "audio/m4a",
+    "audio/webm",
+    "audio/ogg",
+    "audio/wav",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/x-m4a",
+    "audio/m4a",
 }
 MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25 MB (Whisper API limit)
 

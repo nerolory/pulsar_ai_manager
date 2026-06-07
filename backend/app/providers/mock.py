@@ -7,7 +7,6 @@ from app.providers.base import BaseLLMProvider
 from app.providers.factory import ProviderFactory
 from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 
-
 MOCK_RESPONSE = (
     "Это тестовый ответ от **MockProvider**. "
     "Бекенд работает корректно. "
@@ -52,10 +51,12 @@ class MockProvider(BaseLLMProvider):
         )
 
     async def list_models(self) -> List[ModelInfo]:
-        return [ModelInfo(
-            id="mock",
-            name="Mock Model",
-            context_length=4096,
-            pricing=None,
-            free_tier=True,
-        )]
+        return [
+            ModelInfo(
+                id="mock",
+                name="Mock Model",
+                context_length=4096,
+                pricing=None,
+                free_tier=True,
+            )
+        ]

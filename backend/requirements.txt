@@ -11,3 +11,5 @@ aiosqlite==0.21.0
 psutil==6.1.0
 nvidia-ml-py==12.535.133
 py-cpuinfo==9.0.0
+pytest==8.3.4
+pytest-asyncio==0.24.0

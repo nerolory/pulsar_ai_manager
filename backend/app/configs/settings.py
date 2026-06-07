@@ -10,6 +10,7 @@ from typing import List
 
 class Settings(BaseSettings):
     """Typed application settings with environment overrides."""
+
     app_host: str = "127.0.0.1"
     app_port: int = 8000
     log_enabled: bool = True

@@ -23,6 +23,7 @@ class ProviderCapabilities(BaseModel):
         has_models_list: Has API for listing models.
         free_tier_available: Has free tier available.
     """
+
     supports_caching: bool = False
     supports_images: bool = False
     supports_pdf: bool = False
@@ -55,6 +56,7 @@ class ModelInfo(BaseModel):
         downloaded: Whether the model is downloaded (for local models).
         can_run: Whether the system can run this model (for local models).
     """
+
     id: str
     name: str
     context_length: int = 4096

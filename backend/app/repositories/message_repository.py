@@ -23,6 +23,7 @@ class MessageRepository:
         content: str,
         created_at: int,
         model: Optional[str] = None,
+        db_path: Path = DB_PATH,
     ) -> None:
         """Insert a single message and update chat's updated_at.
 
@@ -33,26 +34,31 @@ class MessageRepository:
             content: Message content (text or JSON).
             created_at: Timestamp in milliseconds.
             model: Optional model name that generated the message.
+            db_path: Optional custom database path for testing.
         """
         now = int(datetime.now().timestamp() * 1000)
-        async with aiosqlite.connect(DB_PATH) as db:
-            await db.execute("""
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                """
                 INSERT OR IGNORE INTO messages (id, chat_id, role, content, created_at, model)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (msg_id, chat_id, role, content, created_at, model))
+            """,
+                (msg_id, chat_id, role, content, created_at, model),
+            )
             await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", (now, chat_id))
             await db.commit()
             logger.debug(f"Added message {msg_id} role={role} to chat {chat_id}")
 
     @staticmethod
-    async def update_content(msg_id: str, content: str) -> None:
+    async def update_content(msg_id: str, content: str, db_path: Path = DB_PATH) -> None:
         """Update content of an existing message.
 
         Args:
             msg_id: Message identifier.
             content: New content to set.
+            db_path: Optional custom database path for testing.
         """
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with aiosqlite.connect(db_path) as db:
             await db.execute("UPDATE messages SET content = ? WHERE id = ?", (content, msg_id))
             await db.commit()
 
@@ -61,6 +67,7 @@ class MessageRepository:
         chat_id: str,
         limit: Optional[int] = None,
         before_rowid: Optional[int] = None,
+        db_path: Path = DB_PATH,
     ) -> List[dict]:
         """Get messages for a chat ordered by insertion (rowid).
 
@@ -70,11 +77,12 @@ class MessageRepository:
             chat_id: Parent chat identifier.
             limit: Maximum number of messages to return.
             before_rowid: Only return messages with rowid less than this.
+            db_path: Optional custom database path for testing.
 
         Returns:
             List of message dicts with id, role, content, created_at, model, rowid.
         """
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with aiosqlite.connect(db_path) as db:
             db.row_factory = aiosqlite.Row
             query_params: list = [chat_id]
 
@@ -123,14 +131,15 @@ class MessageRepository:
             return [dict(row) for row in rows]
 
     @staticmethod
-    async def clear_by_chat(chat_id: str) -> None:
+    async def clear_by_chat(chat_id: str, db_path: Path = DB_PATH) -> None:
         """Delete all messages for a chat without deleting the chat itself.
 
         Args:
             chat_id: Parent chat identifier.
+            db_path: Optional custom database path for testing.
         """
         now = int(datetime.now().timestamp() * 1000)
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with aiosqlite.connect(db_path) as db:
             await db.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
             await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", (now, chat_id))
             await db.commit()

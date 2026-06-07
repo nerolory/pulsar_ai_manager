@@ -42,10 +42,12 @@ class AnthropicProvider(BaseLLMProvider):
             # Convert messages to Anthropic format
             messages = []
             system_prompt = None
-            
+
             for msg in request.messages:
                 if msg.role == "system":
-                    system_prompt = msg.content if isinstance(msg.content, str) else str(msg.content)
+                    system_prompt = (
+                        msg.content if isinstance(msg.content, str) else str(msg.content)
+                    )
                 else:
                     # Convert content to Anthropic format
                     if isinstance(msg.content, str):
@@ -57,14 +59,16 @@ class AnthropicProvider(BaseLLMProvider):
                             if part.type == "text":
                                 content.append({"type": "text", "text": part.text})
                             elif part.type == "image_url":
-                                content.append({
-                                    "type": "image",
-                                    "source": {
-                                        "type": "base64",
-                                        "media_type": "image/jpeg",
-                                        "data": part.image_url.url,
+                                content.append(
+                                    {
+                                        "type": "image",
+                                        "source": {
+                                            "type": "base64",
+                                            "media_type": "image/jpeg",
+                                            "data": part.image_url.url,
+                                        },
                                     }
-                                })
+                                )
                         messages.append({"role": msg.role, "content": content})
 
             # If system_prompt is provided in request, use it
@@ -138,13 +142,15 @@ class AnthropicProvider(BaseLLMProvider):
             models = await self._client.models.list()
             result = []
             for model in models.data:
-                result.append(ModelInfo(
-                    id=model.id,
-                    name=model.id,
-                    context_length=getattr(model, 'context_length', 4096),
-                    pricing=None,
-                    free_tier=False,
-                ))
+                result.append(
+                    ModelInfo(
+                        id=model.id,
+                        name=model.id,
+                        context_length=getattr(model, "context_length", 4096),
+                        pricing=None,
+                        free_tier=False,
+                    )
+                )
             return result
         except Exception as e:
             logger.error(f"[Anthropic] Failed to list models: {e}")

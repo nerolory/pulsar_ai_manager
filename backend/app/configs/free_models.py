@@ -24,7 +24,6 @@ FREE_MODELS = {
         "region": "ru",
         "model_group_id": "protalk",
     },
-    
     # International providers
     "groq": {
         "provider": "groq",

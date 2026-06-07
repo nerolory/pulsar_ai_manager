@@ -45,62 +45,64 @@ class OpenRouterProvider(OpenAICompatibleProvider):
 
     def _is_free_tier(self, model) -> bool:
         """OpenRouter has free models with zero prompt price or (free) in name."""
-        pricing = getattr(model, 'pricing', None)
-        model_id = getattr(model, 'id', '')
-        
+        pricing = getattr(model, "pricing", None)
+        model_id = getattr(model, "id", "")
+
         # Check if price is zero
-        if pricing and 'prompt' in pricing and float(pricing['prompt']) == 0:
+        if pricing and "prompt" in pricing and float(pricing["prompt"]) == 0:
             return True
-        
+
         # Check if model name contains free indicator
-        if ':free' in model_id.lower() or '(free)' in model_id.lower():
+        if ":free" in model_id.lower() or "(free)" in model_id.lower():
             return True
-        
+
         return False
 
     def _get_model_limit(self, model) -> dict | None:
         """Extract model limit information from pricing data."""
-        pricing = getattr(model, 'pricing', None)
+        pricing = getattr(model, "pricing", None)
         logger.info(f"[OpenRouter] Model {getattr(model, 'id', 'unknown')} pricing: {pricing}")
-        
+
         if not pricing:
             return None
-        
+
         limit_info = {}
-        
+
         # Check for request limit (daily_limit)
-        if 'request' in pricing:
-            request_limit = pricing.get('request')
+        if "request" in pricing:
+            request_limit = pricing.get("request")
             if request_limit == 0:
-                limit_info['daily_limit'] = None  # Unlimited
+                limit_info["daily_limit"] = None  # Unlimited
             else:
-                limit_info['daily_limit'] = int(request_limit)
-        
+                limit_info["daily_limit"] = int(request_limit)
+
         # Check for token limits and payment status
-        if 'prompt' in pricing and 'completion' in pricing:
-            prompt_price = float(pricing['prompt'])
-            completion_price = float(pricing['completion'])
-            
+        if "prompt" in pricing and "completion" in pricing:
+            prompt_price = float(pricing["prompt"])
+            completion_price = float(pricing["completion"])
+
             if prompt_price == 0 and completion_price == 0:
-                limit_info['is_free'] = True
-                limit_info['requires_payment'] = False
+                limit_info["is_free"] = True
+                limit_info["requires_payment"] = False
                 # Try to get limit from pricing description or other metadata
-                description = getattr(model, 'description', '')
-                if 'free' in description.lower() or 'limit' in description.lower():
-                    limit_match = re.search(r'(\d+)\s*(requests?|tokens?)', description.lower())
+                description = getattr(model, "description", "")
+                if "free" in description.lower() or "limit" in description.lower():
+                    limit_match = re.search(r"(\d+)\s*(requests?|tokens?)", description.lower())
                     if limit_match:
                         limit_value = int(limit_match.group(1))
                         unit = limit_match.group(2)
-                        if 'request' in unit:
-                            limit_info['daily_limit'] = limit_value
-                        elif 'token' in unit:
-                            limit_info['limit_tokens'] = limit_value
+                        if "request" in unit:
+                            limit_info["daily_limit"] = limit_value
+                        elif "token" in unit:
+                            limit_info["limit_tokens"] = limit_value
             else:
                 # Model has pricing, so it requires payment
-                limit_info['requires_payment'] = True
-                limit_info['is_free'] = False
-        
-        logger.info(f"[OpenRouter] Model {getattr(model, 'id', 'unknown')} limit_info: {limit_info}")
+                limit_info["requires_payment"] = True
+                limit_info["is_free"] = False
+
+        logger.info(
+            f"[OpenRouter] Model {getattr(model, 'id', 'unknown')} limit_info: {limit_info}"
+        )
         return limit_info if limit_info else None
 
     async def check_balance(self) -> dict | None:
@@ -109,7 +111,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     "https://openrouter.ai/api/v1/credits",
-                    headers={"Authorization": f"Bearer {self._client.api_key}"}
+                    headers={"Authorization": f"Bearer {self._client.api_key}"},
                 )
                 if response.status_code == 200:
                     data = response.json()
@@ -121,7 +123,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
                         "balance": NumberUtils.format_currency(remaining),
                         "total_credits": NumberUtils.format_currency(total_credits),
                         "total_usage": NumberUtils.format_currency(total_usage),
-                        "currency": "USD"
+                        "currency": "USD",
                     }
         except Exception as e:
             logger.error(f"[OpenRouter] Failed to check balance: {e}")

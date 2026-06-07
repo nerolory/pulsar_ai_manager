@@ -18,6 +18,7 @@ class SettingsPayload(BaseModel):
         model: Model name override.
         base_url: Optional custom API base URL.
     """
+
     provider: Literal[tuple(PROVIDERS)]
     api_key: Optional[str] = None
     model: Optional[str] = None
@@ -26,6 +27,7 @@ class SettingsPayload(BaseModel):
 
 class HealthResponse(BaseModel):
     """Provider health status returned by the health endpoint."""
+
     status: str
     provider: str
     model: Optional[str] = None
@@ -34,5 +36,6 @@ class HealthResponse(BaseModel):
 
 class PromptTestResponse(BaseModel):
     """Result of the system-prompt compliance test."""
+
     follows_instructions: bool
     model_answer: str

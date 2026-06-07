@@ -91,7 +91,13 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                         token = choice.delta.content
                         if token:
                             yield token
-        except (AuthenticationError, RateLimitError, ModelNotFoundError, NetworkError, ProviderError):
+        except (
+            AuthenticationError,
+            RateLimitError,
+            ModelNotFoundError,
+            NetworkError,
+            ProviderError,
+        ):
             raise
         except Exception as e:
             raise self._map_error(e) from e
@@ -157,22 +163,22 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             for model in models.data:
                 model_info = ModelInfo(
                     id=model.id,
-                    name=getattr(model, 'name', model.id),
-                    context_length=getattr(model, 'context_length', 4096),
-                    pricing=getattr(model, 'pricing', None),
+                    name=getattr(model, "name", model.id),
+                    context_length=getattr(model, "context_length", 4096),
+                    pricing=getattr(model, "pricing", None),
                     free_tier=self._is_free_tier(model),
                 )
-                
+
                 # Add dynamic limit information if available
                 limit_info = self._get_model_limit(model)
                 if limit_info:
-                    if 'daily_limit' in limit_info:
-                        model_info.daily_limit = limit_info['daily_limit']
-                    if 'limit_tokens' in limit_info:
-                        model_info.limit_tokens = limit_info['limit_tokens']
-                    if 'is_free' in limit_info:
-                        model_info.is_free = limit_info['is_free']
-                
+                    if "daily_limit" in limit_info:
+                        model_info.daily_limit = limit_info["daily_limit"]
+                    if "limit_tokens" in limit_info:
+                        model_info.limit_tokens = limit_info["limit_tokens"]
+                    if "is_free" in limit_info:
+                        model_info.is_free = limit_info["is_free"]
+
                 result.append(model_info)
             return result
         except Exception as e:

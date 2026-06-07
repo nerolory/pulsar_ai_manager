@@ -9,11 +9,13 @@ from typing import List, Literal, Optional, Union
 
 class ContentImageUrl(BaseModel):
     """URL reference for an image included in message content."""
+
     url: str
 
 
 class ContentPart(BaseModel):
     """A single part of a multi-modal message (text or image)."""
+
     type: Literal["text", "image_url"]
     text: Optional[str] = None
     image_url: Optional[ContentImageUrl] = None
@@ -21,6 +23,7 @@ class ContentPart(BaseModel):
 
 class ChatMessage(BaseModel):
     """One message in a conversation with role and content."""
+
     role: Literal["user", "assistant", "system"]
     content: Union[str, List[ContentPart]]
 
@@ -36,6 +39,7 @@ class ChatRequest(BaseModel):
         system_prompt: Optional system-level instruction.
         use_context: Whether to send full history or only the last user message.
     """
+
     messages: List[ChatMessage]
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=4096, ge=64, le=32768)

@@ -102,7 +102,13 @@ class MistralProvider(BaseLLMProvider):
                 if chunk.data.choices[0].delta.content:
                     yield chunk.data.choices[0].delta.content
 
-        except (AuthenticationError, RateLimitError, ModelNotFoundError, NetworkError, ProviderError):
+        except (
+            AuthenticationError,
+            RateLimitError,
+            ModelNotFoundError,
+            NetworkError,
+            ProviderError,
+        ):
             raise
         except Exception as e:
             raise _map_mistral_error(e, self.model) from e
@@ -110,12 +116,14 @@ class MistralProvider(BaseLLMProvider):
     async def health_check(self) -> bool:
         """Check if Mistral API is accessible."""
         try:
+
             def _check():
                 return self._client.chat.complete(
                     model=self.model,
                     messages=[{"role": "user", "content": "test"}],
                     max_tokens=10,
                 )
+
             await asyncio.to_thread(_check)
             return True
         except Exception as e:
@@ -139,18 +147,22 @@ class MistralProvider(BaseLLMProvider):
 
     async def list_models(self) -> List[ModelInfo]:
         try:
+
             def _list():
                 return self._client.models.list()
+
             models = await asyncio.to_thread(_list)
             result = []
             for model in models.data:
-                result.append(ModelInfo(
-                    id=model.id,
-                    name=model.id,
-                    context_length=getattr(model, 'context_length', 4096),
-                    pricing=None,
-                    free_tier=True,
-                ))
+                result.append(
+                    ModelInfo(
+                        id=model.id,
+                        name=model.id,
+                        context_length=getattr(model, "context_length", 4096),
+                        pricing=None,
+                        free_tier=True,
+                    )
+                )
             return result
         except Exception as e:
             logger.error(f"[Mistral] Failed to list models: {e}")

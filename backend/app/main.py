@@ -35,8 +35,12 @@ if not settings.log_enabled:
     logger.disable("app")
 else:
     logger.remove()
-    logger.add(sys.stderr, level="INFO", colorize=True,
-               format="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | {message}")
+    logger.add(
+        sys.stderr,
+        level="INFO",
+        colorize=True,
+        format="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | {message}",
+    )
 
 
 # ── App ────────────────────────────────────────────
@@ -51,11 +55,13 @@ async def lifespan(application: FastAPI):
         None: Control passes to the running application.
     """
     from app.database import init_db
+
     await init_db()
 
     if settings.mock_mode:
         from app.providers.factory import ProviderFactory, ProviderConfig
         import app.providers
+
         app.providers.register_all()
         mock_instance = ProviderFactory.create(ProviderConfig(provider="mock"))
         set_provider(mock_instance)
@@ -63,10 +69,16 @@ async def lifespan(application: FastAPI):
     else:
         from app.storage import load_provider_config
         from app.routes.settings import init_provider
+
         config = load_provider_config()
         if config and config.get("provider"):
             try:
-                init_provider(config["provider"], config.get("api_key"), config.get("model"), config.get("base_url"))
+                init_provider(
+                    config["provider"],
+                    config.get("api_key"),
+                    config.get("model"),
+                    config.get("base_url"),
+                )
                 logger.info(f"Provider restored from settings.yaml: {config['provider']}")
             except Exception as e:
                 logger.error(f"Failed to restore provider: {e}")
@@ -166,6 +178,7 @@ async def provider_error_handler(request: Request, exc: ProviderError):
         status_code=500,
         content={"error": "Ошибка провайдера", "message": exc.message},
     )
+
 
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(settings_router, prefix="/api/v1")

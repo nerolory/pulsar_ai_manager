@@ -121,6 +121,7 @@ class StorageService:
             Dict mapping provider names to their saved configs.
         """
         from app.providers.config import PROVIDERS
+
         data = self._load_yaml()
         return {
             provider_name: {
