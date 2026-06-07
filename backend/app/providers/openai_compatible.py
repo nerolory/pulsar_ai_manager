@@ -88,3 +88,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
     def _is_free_tier(self, model) -> bool:
         """Determine if model has free tier. Override in subclass for custom logic."""
         return False
+
+    async def check_balance(self) -> dict | None:
+        """Check account balance. Not supported by default OpenAI-compatible API."""
+        return None

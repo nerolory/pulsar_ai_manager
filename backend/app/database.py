@@ -55,6 +55,25 @@ async def init_db() -> None:
         except Exception:
             pass  # column already exists
 
+        # Create model_cache table for caching provider models
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS model_cache (
+                provider TEXT NOT NULL,
+                model_id TEXT NOT NULL,
+                model_name TEXT NOT NULL,
+                context_length INTEGER DEFAULT 4096,
+                pricing TEXT,
+                free_tier BOOLEAN DEFAULT 0,
+                cached_at INTEGER NOT NULL,
+                PRIMARY KEY (provider, model_id)
+            )
+        """)
+
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_model_cache_provider 
+            ON model_cache(provider, cached_at DESC)
+        """)
+
         await db.commit()
         logger.info("Database initialized successfully")
 
@@ -194,3 +213,65 @@ async def get_chat_count() -> int:
         cursor = await db.execute("SELECT COUNT(*) FROM chats")
         row = await cursor.fetchone()
         return row[0] if row else 0
+
+
+async def cache_models(provider: str, models: List[dict]) -> None:
+    """Cache models for a provider, replacing existing cache"""
+    now = int(datetime.now().timestamp() * 1000)
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Delete existing cache for this provider
+        await db.execute("DELETE FROM model_cache WHERE provider = ?", (provider,))
+        
+        # Insert new models
+        for model in models:
+            import json
+            pricing_json = json.dumps(model.get('pricing')) if model.get('pricing') else None
+            await db.execute("""
+                INSERT INTO model_cache (provider, model_id, model_name, context_length, pricing, free_tier, cached_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                provider,
+                model.get('id'),
+                model.get('name', model.get('id')),
+                model.get('context_length', 4096),
+                pricing_json,
+                model.get('free_tier', False),
+                now
+            ))
+        
+        await db.commit()
+        logger.debug(f"Cached {len(models)} models for provider {provider}")
+
+
+async def get_cached_models(provider: str, ttl_hours: int = 24) -> Optional[List[dict]]:
+    """Get cached models for a provider if not expired"""
+    ttl_ms = ttl_hours * 60 * 60 * 1000
+    now = int(datetime.now().timestamp() * 1000)
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("""
+            SELECT model_id, model_name, context_length, pricing, free_tier, cached_at
+            FROM model_cache
+            WHERE provider = ? AND cached_at > ?
+            ORDER BY model_name
+        """, (provider, now - ttl_ms))
+        
+        rows = await cursor.fetchall()
+        if not rows:
+            return None
+        
+        import json
+        result = []
+        for row in rows:
+            pricing = json.loads(row['pricing']) if row['pricing'] else None
+            result.append({
+                'id': row['model_id'],
+                'name': row['model_name'],
+                'context_length': row['context_length'],
+                'pricing': pricing,
+                'free_tier': bool(row['free_tier']),
+            })
+        
+        logger.debug(f"Retrieved {len(result)} cached models for provider {provider}")
+        return result

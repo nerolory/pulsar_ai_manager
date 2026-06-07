@@ -327,12 +327,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useChatStore } from '@/stores/chat'
 import { useToast } from '@/composables/useToast'
 import { useTheme } from '@/composables/useTheme'
-import { testPrompt, getModels, refreshModels, detectProvider } from '@/api/settings'
+import { testPrompt, getModels, refreshModels, detectProvider, getBalance } from '@/api/settings'
 import type { ProviderName, ModelInfo } from '@/types'
 
 const emit = defineEmits<{ back: [] }>()
@@ -344,6 +344,7 @@ const { themes, currentTheme, setTheme } = useTheme()
 
 const activeSection = ref('providers')
 const activeSectionMeta = computed(() => sections.find(section => section.id === activeSection.value))
+const providerBalance = ref<string | null>(null)
 
 const sections = [
   { id: 'providers', icon: '🤖', label: 'Провайдеры ИИ' },
@@ -467,8 +468,30 @@ async function refreshProviderModels() {
 }
 
 function getProviderBalance(providerId: string): string {
-  // TODO: Implement balance checking when API is available
-  return 'не отслеживается'
+  if (!providerBalance.value) return 'не отслеживается'
+  return providerBalance.value
+}
+
+async function loadProviderBalance() {
+  if (!settingsStore.activeProvider) return
+  console.log('Loading balance for provider:', settingsStore.activeProvider)
+  try {
+    const response = await getBalance()
+    console.log('Balance response:', response)
+    if (response.balance !== null && response.balance !== undefined) {
+      const balance = response.balance
+      if (balance.currency === 'USD') {
+        providerBalance.value = `$${balance.balance}`
+      } else {
+        providerBalance.value = `${balance.balance} ${balance.currency}`
+      }
+    } else {
+      providerBalance.value = response.message || 'не отслеживается'
+    }
+  } catch (error) {
+    console.error('Failed to load balance:', error)
+    providerBalance.value = 'не отслеживается'
+  }
 }
 
 async function onBaseUrlChange() {
@@ -507,6 +530,7 @@ async function saveProvider() {
     setupModal.open = false
     showToast('✅', 'Провайдер подключён', providers.value?.find(provider => provider.id === setupModal.provider)?.name ?? 'Custom')
     await settingsStore.loadCapabilities()
+    await loadProviderBalance()
     runPromptTest()
   } catch (error) {
     setupModal.error = (error as Error).message
@@ -541,6 +565,23 @@ async function refreshModels() {
     showToast('❌', 'PulsarAI', 'Не удалось обновить список моделей', 3000)
   }
 }
+
+onMounted(async () => {
+  await settingsStore.loadProvidersMetadata()
+  await settingsStore.loadProviderConfig()
+  if (settingsStore.activeProvider) {
+    await settingsStore.loadCapabilities()
+    await settingsStore.loadModels()
+    await loadProviderBalance()
+  }
+})
+
+watch(() => settingsStore.activeProvider, async (newProvider) => {
+  if (newProvider) {
+    providerBalance.value = null
+    await loadProviderBalance()
+  }
+})
 </script>
 
 <style scoped>
@@ -597,7 +638,7 @@ async function refreshModels() {
   cursor: pointer; border: none; transition: all .15s; white-space: nowrap;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primary { background: var(--accent); color: var(--bg-inv); }
+.btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--accent-l); }
 .btn-secondary { background: var(--bg-gh); color: var(--t2); border: 1px solid var(--brd); }
 .btn-secondary:hover { color: var(--t1); border-color: var(--brd-a); }
@@ -742,8 +783,9 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 }
 .cp-info {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 .cp-label {
   font-size: 11px;

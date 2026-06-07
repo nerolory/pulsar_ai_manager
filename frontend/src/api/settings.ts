@@ -63,3 +63,7 @@ export async function refreshModels(): Promise<{ models: ModelInfo[]; source: st
 export async function detectProvider(baseUrl: string): Promise<{ provider: string | null; detected: boolean; compatible: boolean; message?: string }> {
   return await api.post('/settings/detect-provider', { base_url: baseUrl })
 }
+
+export async function getBalance(): Promise<{ balance: any | null; message?: string }> {
+  return await api.get('/settings/balance')
+}

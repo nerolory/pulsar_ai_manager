@@ -1,10 +1,10 @@
 """Google Gemini provider using native SDK."""
 
-from typing import AsyncIterator
+from typing import AsyncIterator, List
 import asyncio
 import google.generativeai as genai
 from app.providers.base import BaseLLMProvider
-from app.schemas import ChatRequest
+from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 from app.exceptions import (
     AuthenticationError,
     RateLimitError,
@@ -91,3 +91,38 @@ class GeminiProvider(BaseLLMProvider):
         except Exception as e:
             logger.warning(f"Gemini health check failed: {e}")
             return False
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            supports_caching=False,
+            supports_images=True,
+            supports_pdf=False,
+            supports_system_prompt=True,
+            supports_files=["jpg", "jpeg", "png", "gif", "webp"],
+            max_context_tokens=2800000,
+            streaming=True,
+            pricing_model="per_token",
+            has_balance_api=True,
+            has_models_list=True,
+            free_tier_available=True,
+        )
+
+    async def list_models(self) -> List[ModelInfo]:
+        try:
+            def _list():
+                return genai.list_models()
+            models = await asyncio.to_thread(_list)
+            result = []
+            for model in models:
+                if 'generateContent' in model.supported_generation_methods:
+                    result.append(ModelInfo(
+                        id=model.name,
+                        name=model.display_name or model.name,
+                        context_length=getattr(model, 'context_length', 4096),
+                        pricing=None,
+                        free_tier=True,
+                    ))
+            return result
+        except Exception as e:
+            logger.error(f"[Gemini] Failed to list models: {e}")
+            return []

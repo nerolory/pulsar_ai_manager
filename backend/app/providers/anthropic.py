@@ -1,9 +1,9 @@
 """Anthropic Claude provider using native SDK."""
 
-from typing import AsyncIterator
+from typing import AsyncIterator, List
 import anthropic
 from app.providers.base import BaseLLMProvider
-from app.schemas import ChatRequest, ChatMessage
+from app.schemas import ChatRequest, ChatMessage, ProviderCapabilities, ModelInfo
 from app.exceptions import (
     AuthenticationError,
     RateLimitError,
@@ -103,3 +103,35 @@ class AnthropicProvider(BaseLLMProvider):
         except Exception as e:
             logger.warning(f"Anthropic health check failed: {e}")
             return False
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            supports_caching=True,
+            supports_images=True,
+            supports_pdf=False,
+            supports_system_prompt=True,
+            supports_files=["jpg", "jpeg", "png", "gif", "webp"],
+            max_context_tokens=200000,
+            streaming=True,
+            pricing_model="per_token",
+            has_balance_api=True,
+            has_models_list=True,
+            free_tier_available=False,
+        )
+
+    async def list_models(self) -> List[ModelInfo]:
+        try:
+            models = await self._client.models.list()
+            result = []
+            for model in models.data:
+                result.append(ModelInfo(
+                    id=model.id,
+                    name=model.id,
+                    context_length=getattr(model, 'context_length', 4096),
+                    pricing=None,
+                    free_tier=False,
+                ))
+            return result
+        except Exception as e:
+            logger.error(f"[Anthropic] Failed to list models: {e}")
+            return []

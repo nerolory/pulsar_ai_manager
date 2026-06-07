@@ -1,10 +1,10 @@
 """Mistral AI provider using native SDK."""
 
-from typing import AsyncIterator
+from typing import AsyncIterator, List
 import asyncio
 from mistralai import Mistral
 from app.providers.base import BaseLLMProvider
-from app.schemas import ChatRequest
+from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 from app.exceptions import (
     AuthenticationError,
     RateLimitError,
@@ -86,3 +86,37 @@ class MistralProvider(BaseLLMProvider):
         except Exception as e:
             logger.warning(f"Mistral health check failed: {e}")
             return False
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            supports_caching=False,
+            supports_images=True,
+            supports_pdf=False,
+            supports_system_prompt=True,
+            supports_files=["jpg", "jpeg", "png", "gif", "webp"],
+            max_context_tokens=128000,
+            streaming=True,
+            pricing_model="per_token",
+            has_balance_api=True,
+            has_models_list=True,
+            free_tier_available=True,
+        )
+
+    async def list_models(self) -> List[ModelInfo]:
+        try:
+            def _list():
+                return self._client.models.list()
+            models = await asyncio.to_thread(_list)
+            result = []
+            for model in models.data:
+                result.append(ModelInfo(
+                    id=model.id,
+                    name=model.id,
+                    context_length=getattr(model, 'context_length', 4096),
+                    pricing=None,
+                    free_tier=True,
+                ))
+            return result
+        except Exception as e:
+            logger.error(f"[Mistral] Failed to list models: {e}")
+            return []

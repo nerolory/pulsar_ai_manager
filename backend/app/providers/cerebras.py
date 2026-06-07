@@ -1,59 +1,29 @@
 """Cerebras provider using OpenAI-compatible API."""
 
 from typing import AsyncIterator
-from openai import AsyncOpenAI
-from app.providers.base import BaseLLMProvider
-from app.schemas import ChatRequest
+from app.providers.openai_compatible import OpenAICompatibleProvider
+from app.schemas import ChatRequest, ProviderCapabilities
 from app.exceptions import (
     AuthenticationError,
     RateLimitError,
     ModelNotFoundError,
     NetworkError,
-    ProviderUnavailableError,
     ProviderError,
 )
 from loguru import logger
 
 
-class CerebrasProvider(BaseLLMProvider):
+class CerebrasProvider(OpenAICompatibleProvider):
     """Cerebras provider with OpenAI-compatible API."""
 
     def __init__(self, api_key: str, model: str = "llama3.1-70b"):
-        self._client = AsyncOpenAI(
-            api_key=api_key,
-            base_url="https://api.cerebras.ai/v1",
-        )
-        self.model = model
+        super().__init__(api_key, model, "https://api.cerebras.ai/v1")
 
     async def chat(self, request: ChatRequest) -> AsyncIterator[str]:
-        """Stream chat completion using Cerebras API."""
+        """Stream chat completion using Cerebras API with custom error handling."""
         try:
-            # Convert messages to OpenAI format
-            messages = []
-            for msg in request.messages:
-                if msg.role == "system":
-                    messages.append({"role": "system", "content": msg.content})
-                else:
-                    messages.append({"role": msg.role, "content": msg.content})
-
-            # Add system prompt if provided
-            if request.system_prompt:
-                messages.insert(0, {"role": "system", "content": request.system_prompt})
-
-            # Stream response
-            stream = await self._client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=request.max_tokens,
-                temperature=request.temperature,
-                top_p=request.top_p,
-                stream=True,
-            )
-
-            async for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
-
+            async for token in super().chat(request):
+                yield token
         except Exception as e:
             error_str = str(e).lower()
             if "authentication" in error_str or "invalid api key" in error_str:
@@ -72,15 +42,21 @@ class CerebrasProvider(BaseLLMProvider):
                 logger.error(f"Cerebras unexpected error: {e}")
                 raise ProviderError(f"Ошибка провайдера Cerebras: {str(e)}")
 
-    async def health_check(self) -> bool:
-        """Check if Cerebras API is accessible."""
-        try:
-            await self._client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": "test"}],
-                max_tokens=10,
-            )
-            return True
-        except Exception as e:
-            logger.warning(f"Cerebras health check failed: {e}")
-            return False
+    def get_capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            supports_caching=False,
+            supports_images=False,
+            supports_pdf=False,
+            supports_system_prompt=True,
+            supports_files=[],
+            max_context_tokens=32000,
+            streaming=True,
+            pricing_model="per_token",
+            has_balance_api=False,
+            has_models_list=True,
+            free_tier_available=True,
+        )
+
+    def _is_free_tier(self, model) -> bool:
+        """Cerebras has free tier for all models."""
+        return True

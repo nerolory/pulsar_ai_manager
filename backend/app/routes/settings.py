@@ -230,7 +230,7 @@ async def test_prompt():
             ChatMessage(role="user", content=_TEST_USER),
         ],
         temperature=0.0,
-        max_tokens=16,
+        max_tokens=64,
     )
     try:
         chunks = []
@@ -342,3 +342,25 @@ async def refresh_models():
         HTTPException: If no provider is configured or fetching fails.
     """
     return await get_models(refresh=True)
+
+
+@router.get("/balance")
+async def get_balance():
+    """Get account balance for the active provider.
+
+    Returns:
+        dict: Balance information or message if not supported.
+
+    Raises:
+        HTTPException: If no provider is configured.
+    """
+    provider = get_provider()
+    if not provider:
+        raise HTTPException(status_code=400, detail="No provider configured")
+
+    logger.info(f"Checking balance for provider: {provider.__class__.__name__}")
+    balance_info = await provider.check_balance()
+    logger.info(f"Balance info: {balance_info}")
+    if balance_info is None:
+        return {"balance": None, "message": "не отслеживается"}
+    return {"balance": balance_info}

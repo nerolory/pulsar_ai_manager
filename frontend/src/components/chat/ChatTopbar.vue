@@ -5,6 +5,16 @@
       <div class="tb-sub">{{ subtitle }}</div>
     </div>
 
+    <div v-if="balance" class="balance-badge" :title="'Баланс провайдера'">
+      <span class="balance-icon">💰</span>
+      <span class="balance-value">{{ balance }}</span>
+    </div>
+
+    <div v-if="tokenEstimate" class="token-badge" :title="'Примерное количество токенов на текущем балансе'">
+      <span class="token-icon">📝</span>
+      <span class="token-value">{{ tokenEstimate }}</span>
+    </div>
+
     <button
       v-if="health"
       class="llm-badge"
@@ -26,6 +36,9 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted, watch } from 'vue'
+import { getBalance, getCapabilities } from '@/api/settings'
+import { useSettingsStore } from '@/stores/settings'
 import type { HealthStatus } from '@/types'
 
 defineProps<{
@@ -34,6 +47,104 @@ defineProps<{
   health: HealthStatus | null
 }>()
 const emit = defineEmits<{ clearChat: []; openSettings: [] }>()
+
+const settingsStore = useSettingsStore()
+const balance = ref<string | null>(null)
+const tokenEstimate = ref<string | null>(null)
+
+function calculateTokenEstimate(bal: any) {
+  console.log('Calculating token estimate')
+  console.log('Active model:', settingsStore.activeModel)
+  console.log('Models:', settingsStore.models)
+  
+  if (settingsStore.activeModel && settingsStore.models.length > 0) {
+    const currentModel = settingsStore.models.find(m => m.id === settingsStore.activeModel)
+    console.log('Current model found:', currentModel)
+    
+    // Check if model has free tier
+    if (currentModel?.free_tier) {
+      tokenEstimate.value = 'бесплатно'
+      console.log('Model has free tier')
+      return
+    }
+    
+    if (currentModel?.pricing) {
+      const pricing = currentModel.pricing as Record<string, number>
+      const promptPrice = pricing.prompt || 0
+      const completionPrice = pricing.completion || 0
+      const avgPrice = (promptPrice + completionPrice) / 2
+      
+      console.log('Pricing:', { promptPrice, completionPrice, avgPrice })
+      
+      if (avgPrice > 0 && bal.balance > 0) {
+        const estimatedTokens = Math.floor(bal.balance / avgPrice)
+        tokenEstimate.value = `~${formatNumber(estimatedTokens)} токенов`
+        console.log('Token estimate:', tokenEstimate.value)
+      } else if (bal.balance <= 0) {
+        tokenEstimate.value = '0 токенов'
+        console.log('Negative or zero balance')
+      }
+    } else {
+      console.log('No pricing data for model')
+    }
+  } else {
+    console.log('No active model or models not loaded')
+  }
+}
+
+onMounted(async () => {
+  try {
+    const [balanceResponse, capabilities] = await Promise.all([
+      getBalance(),
+      getCapabilities()
+    ])
+    
+    if (balanceResponse.balance !== null && balanceResponse.balance !== undefined) {
+      const bal = balanceResponse.balance
+      console.log('Balance data:', bal)
+      
+      if (bal.currency === 'USD') {
+        balance.value = `$${bal.balance}`
+        calculateTokenEstimate(bal)
+      } else {
+        balance.value = `${bal.balance} ${bal.currency}`
+      }
+    } else {
+      balance.value = null
+    }
+  } catch {
+    balance.value = null
+    tokenEstimate.value = null
+  }
+})
+
+watch(() => settingsStore.models, () => {
+  if (balance.value) {
+    // Re-calculate when models are loaded
+    getBalance().then(response => {
+      if (response.balance) {
+        calculateTokenEstimate(response.balance)
+      }
+    })
+  }
+})
+
+watch(() => settingsStore.activeModel, () => {
+  if (balance.value) {
+    // Re-calculate when model changes
+    getBalance().then(response => {
+      if (response.balance) {
+        calculateTokenEstimate(response.balance)
+      }
+    })
+  }
+})
+
+function formatNumber(num: number): string {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
+  return num.toString()
+}
 </script>
 
 <style scoped>
@@ -45,6 +156,24 @@ const emit = defineEmits<{ clearChat: []; openSettings: [] }>()
 .tb-info { flex: 1; }
 .tb-title { font-size: 14px; font-weight: 600; color: var(--t1); }
 .tb-sub { font-size: 11px; color: var(--t3); margin-top: 1px; }
+
+.balance-badge {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 20px;
+  background: var(--bg-s); border: 1px solid var(--brd);
+  font-size: 11px;
+}
+.balance-icon { font-size: 12px; }
+.balance-value { color: var(--t2); font-weight: 500; }
+
+.token-badge {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 20px;
+  background: var(--bg-s); border: 1px solid var(--brd);
+  font-size: 11px;
+}
+.token-icon { font-size: 12px; }
+.token-value { color: var(--t2); font-weight: 500; }
 
 .llm-badge {
   display: flex; align-items: center; gap: 5px;

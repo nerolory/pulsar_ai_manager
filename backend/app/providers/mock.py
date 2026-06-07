@@ -1,7 +1,7 @@
 import asyncio
-from typing import AsyncIterator
+from typing import AsyncIterator, List
 from app.providers.base import BaseLLMProvider
-from app.schemas import ChatRequest
+from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 
 
 MOCK_RESPONSE = (
@@ -21,3 +21,27 @@ class MockProvider(BaseLLMProvider):
 
     async def health_check(self) -> bool:
         return True
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            supports_caching=False,
+            supports_images=False,
+            supports_pdf=False,
+            supports_system_prompt=True,
+            supports_files=[],
+            max_context_tokens=4096,
+            streaming=True,
+            pricing_model="per_request",
+            has_balance_api=False,
+            has_models_list=False,
+            free_tier_available=True,
+        )
+
+    async def list_models(self) -> List[ModelInfo]:
+        return [ModelInfo(
+            id="mock",
+            name="Mock Model",
+            context_length=4096,
+            pricing=None,
+            free_tier=True,
+        )]

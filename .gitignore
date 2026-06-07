@@ -54,6 +54,9 @@ ui-preview/
 # Plans
 PLAN.md
 
+# Documentation (technical debt, internal docs)
+docs/technical-debt.md
+
 # OS
 .DS_Store
 Thumbs.db
