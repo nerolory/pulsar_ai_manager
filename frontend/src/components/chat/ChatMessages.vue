@@ -38,6 +38,12 @@
             <button class="hint-link" @click="emit('openSettings')">Настройки → Провайдеры ИИ</button>
             и подключите один из сервисов.</span>
         </div>
+        <div v-else-if="isBalanceError(message)" class="bub bub--hint bub--balance">
+          <span class="hint-icon">💰</span>
+          <span>{{ message.content }}</span>
+          <button v-if="message.rowid" class="hint-btn" @click="switchToFreeModel(message.rowid)">Переключиться</button>
+          <button class="hint-link" @click="emit('openSettings')">Пополнить баланс</button>
+        </div>
         <div v-else-if="message.role === 'assistant' && isLast(message.id) && !message.content" class="bub">
           <div class="typing"><div class="td" /><div class="td" /><div class="td" /></div>
         </div>
@@ -57,6 +63,8 @@
 import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import type { ChatMessage, ContentPart, MessageContent } from '@/types'
 import { useMarkdown } from '@/composables/useMarkdown'
+import { switchModel } from '@/api/settings'
+import { useSettingsStore } from '@/stores/settings'
 
 const props = defineProps<{
   messages: ChatMessage[]
@@ -69,6 +77,7 @@ const emit = defineEmits<{ openSettings: []; loadMore: [before: number] }>()
 
 const container = ref<HTMLElement | null>(null)
 const { render: renderContent } = useMarkdown()
+const settingsStore = useSettingsStore()
 const isLoadingMore = ref(false)
 const hasMoreMessages = ref(true)
 const isProgrammaticScroll = ref(false)
@@ -78,6 +87,33 @@ const PROVIDER_ERROR_PATTERNS = [
   'no_provider',
 ]
 
+const BALANCE_ERROR_PATTERNS = [
+  'balance-error-',
+]
+
+function isProviderError(message: ChatMessage): boolean {
+  return PROVIDER_ERROR_PATTERNS.some(pattern => 
+    message.content?.toLowerCase().includes(pattern.toLowerCase())
+  )
+}
+
+function isBalanceError(message: ChatMessage): boolean {
+  return BALANCE_ERROR_PATTERNS.some(pattern => 
+    message.id?.startsWith(pattern)
+  )
+}
+
+async function switchToFreeModel(modelId: string) {
+  try {
+    await switchModel(modelId)
+    await settingsStore.loadAllSettings()
+    // Reload page or refresh UI to reflect the change
+    window.location.reload()
+  } catch (error) {
+    console.error('Failed to switch model:', error)
+  }
+}
+
 function getTextContent(content: MessageContent): string {
   if (typeof content === 'string') return content
   return content.filter(part => part.type === 'text').map(part => part.text ?? '').join(' ')
@@ -86,12 +122,6 @@ function getTextContent(content: MessageContent): string {
 function getImageParts(content: MessageContent): ContentPart[] {
   if (typeof content === 'string') return []
   return content.filter(part => part.type === 'image_url')
-}
-
-function isProviderError(message: ChatMessage): boolean {
-  if (message.role !== 'assistant') return false
-  const text = getTextContent(message.content)
-  return PROVIDER_ERROR_PATTERNS.some((pattern) => text.includes(pattern))
 }
 
 function formatTime(ts: number): string {

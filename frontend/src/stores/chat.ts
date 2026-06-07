@@ -4,7 +4,23 @@ import { nanoid } from 'nanoid'
 import type { Chat, ChatMessage, ChatParams, ContentPart, MessageContent } from '@/types'
 import { streamChat, buildStreamRequest } from '@/api/chat'
 import { listChats, createChat as apiCreateChat, renameChat as apiRenameChat, addMessageToChat, reorderChats as apiReorderChats, clearChatMessages, deleteChat as apiDeleteChat, getChatMessages } from '@/api/chats'
+import { switchModel, getModels } from '@/api/settings'
 import { useSettingsStore } from '@/stores/settings'
+
+function filterServiceMessages(content: string): string {
+  if (typeof content !== 'string') return content
+  // Filter out OpenRouter service messages
+  const lines = content.split('\n')
+  const filtered = lines.filter(line => {
+    const trimmed = line.trim()
+    // Remove service messages
+    if (trimmed.startsWith('User Safety:') || trimmed.startsWith('Content Policy:')) {
+      return false
+    }
+    return true
+  })
+  return filtered.join('\n').trim()
+}
 
 const DEFAULT_PARAMS: ChatParams = { // v2
 
@@ -226,6 +242,39 @@ export const useChatStore = defineStore('chat', () => {
 
     // All attempts failed
     const modelName = currentModel || 'AI-модель'
+    
+    // Check if error is related to balance/credits
+    const isBalanceError = lastError?.message?.toLowerCase().includes('balance') || 
+                          lastError?.message?.toLowerCase().includes('credit') ||
+                          lastError?.message?.toLowerCase().includes('insufficient')
+    
+    if (isBalanceError) {
+      // Try to find a free model from the same group
+      try {
+        const { models } = await getModels()
+        const currentModelData = models.find(m => m.id === currentModel)
+        const modelGroupId = currentModelData?.model_group_id
+        
+        if (modelGroupId) {
+          const freeModel = models.find(m => m.model_group_id === modelGroupId && m.is_free)
+          if (freeModel) {
+            assistantMsg.content = `Недостаточно средств на балансе. Вы можете переключиться на бесплатную версию модели: ${freeModel.name}.`
+            // Store the free model ID for potential switching
+            assistantMsg.id = `balance-error-${nanoid()}`
+            assistantMsg.rowid = freeModel.id // Store free model ID in rowid temporarily
+            streaming.value = false
+            abortController = null
+            if (activeChatId.value) {
+              addMessageToChat(activeChatId.value, assistantMsg).catch(error => console.error('[Chat] failed to save error msg:', error))
+            }
+            return
+          }
+        }
+      } catch (e) {
+        console.error('[Chat] failed to find free model:', e)
+      }
+    }
+    
     assistantMsg.content = `Сервис «${modelName}» сейчас недоступен. Попробуйте позже или выберите другой сервис в настройках.`
     console.error('[Chat] all retries failed:', (lastError as Error | null)?.message)
     streaming.value = false

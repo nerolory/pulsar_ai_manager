@@ -3,6 +3,14 @@ from pydantic import BaseModel
 from loguru import logger
 from app.database import get_current_schema_version, run_pending_migrations, upgrade_schema
 from app.system_check import get_system_specs, check_hardware_tier, check_cpu_features
+from app.model_downloader import (
+    is_model_downloaded,
+    download_model,
+    delete_model,
+    get_downloaded_models,
+    get_storage_info
+)
+from app.configs.local_models import get_model_info, get_all_models, can_run_model
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -168,3 +176,115 @@ async def get_local_llm_settings():
     except Exception as e:
         logger.error(f"Failed to get local LLM settings: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get local LLM settings: {str(e)}")
+
+
+class ModelListResponse(BaseModel):
+    """List of available local models."""
+    models: dict[str, dict]
+    downloaded: list[str]
+    storage_info: dict
+
+
+@router.get("/local-llm/models", response_model=ModelListResponse)
+async def list_local_models():
+    """Get list of available local models and their status"""
+    try:
+        all_models = get_all_models()
+        downloaded = get_downloaded_models()
+        storage_info = get_storage_info()
+        
+        # Add download status and can_run status to each model
+        models_with_status = {}
+        for model_id, model_info in all_models.items():
+            models_with_status[model_id] = {
+                **model_info,
+                "downloaded": model_id in downloaded
+            }
+        
+        return ModelListResponse(
+            models=models_with_status,
+            downloaded=downloaded,
+            storage_info=storage_info
+        )
+    except Exception as e:
+        logger.error(f"Failed to list local models: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list local models: {str(e)}")
+
+
+class DownloadModelResponse(BaseModel):
+    """Response for model download request."""
+    success: bool
+    message: str
+
+
+@router.post("/local-llm/download/{model_id}", response_model=DownloadModelResponse)
+async def download_local_model(model_id: str):
+    """Download a local LLM model"""
+    try:
+        # Check if model exists
+        model_info = get_model_info(model_id)
+        if not model_info:
+            return DownloadModelResponse(
+                success=False,
+                message=f"Model {model_id} not found"
+            )
+        
+        # Check if system can run this model
+        specs = get_system_specs()
+        can_run, reason = can_run_model(
+            model_id,
+            specs["total_ram_gb"],
+            specs["cpu_cores"],
+            specs["gpu_available"],
+            specs["gpu_vram_gb"] if specs["gpu_vram_gb"] else 0
+        )
+        
+        if not can_run:
+            return DownloadModelResponse(
+                success=False,
+                message=f"System cannot run this model: {reason}"
+            )
+        
+        # Download model
+        success = await download_model(model_id)
+        
+        if success:
+            return DownloadModelResponse(
+                success=True,
+                message=f"Model {model_id} downloaded successfully"
+            )
+        else:
+            return DownloadModelResponse(
+                success=False,
+                message=f"Failed to download model {model_id}"
+            )
+    except Exception as e:
+        logger.error(f"Failed to download model {model_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to download model: {str(e)}")
+
+
+class DeleteModelResponse(BaseModel):
+    """Response for model delete request."""
+    success: bool
+    message: str
+
+
+@router.delete("/local-llm/delete/{model_id}", response_model=DeleteModelResponse)
+async def delete_local_model(model_id: str):
+    """Delete a downloaded local LLM model"""
+    try:
+        success = delete_model(model_id)
+        
+        if success:
+            return DeleteModelResponse(
+                success=True,
+                message=f"Model {model_id} deleted successfully"
+            )
+        else:
+            return DeleteModelResponse(
+                success=False,
+                message=f"Failed to delete model {model_id} or model not found"
+            )
+    except Exception as e:
+        logger.error(f"Failed to delete model {model_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete model: {str(e)}")

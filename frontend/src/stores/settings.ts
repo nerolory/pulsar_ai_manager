@@ -51,6 +51,7 @@ export const useSettingsStore = defineStore('settings', () => {
     } catch (error) {
       console.error('Failed to load provider config:', error)
     }
+    // Load health check after config is loaded
     await checkHealth()
   }
 
@@ -83,6 +84,25 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  async function loadAllSettings() {
+    // Load provider config first (highest priority)
+    await loadProviderConfig()
+    
+    // Load providers metadata in parallel with other non-dependent calls
+    const providersPromise = loadProvidersMetadata()
+    
+    // Load capabilities and models in parallel after provider config is loaded
+    if (activeProvider.value) {
+      await Promise.all([
+        providersPromise,
+        loadCapabilities(),
+        loadModels()
+      ])
+    } else {
+      await providersPromise
+    }
+  }
+
   async function refreshModelsList() {
     await loadModels(true)
   }
@@ -106,6 +126,7 @@ export const useSettingsStore = defineStore('settings', () => {
     applyProvider, 
     checkHealth, 
     loadProviderConfig,
+    loadAllSettings,
     loadProvidersMetadata,
     loadCapabilities,
     loadModels,

@@ -1,7 +1,7 @@
 import os
 import sys
 import uvicorn
-from app.config import settings
+from app.configs import settings
 
 if __name__ == "__main__":
     is_frozen = getattr(sys, 'frozen', False)

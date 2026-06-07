@@ -67,3 +67,89 @@ export async function detectProvider(baseUrl: string): Promise<{ provider: strin
 export async function getBalance(): Promise<{ balance: any | null; message?: string }> {
   return await api.get('/settings/balance')
 }
+
+export async function switchModel(model: string): Promise<{ success: boolean; model: string }> {
+  return await api.post('/settings/switch-model', { model })
+}
+
+export async function getModelGroups(): Promise<{ groups: Record<string, any> }> {
+  return await api.get('/settings/model-groups')
+}
+
+// Local LLM API functions
+export async function getSystemCheck(): Promise<{
+  specs: {
+    total_ram_gb: number
+    available_ram_gb: number
+    cpu_cores: number
+    cpu_threads: number
+    cpu_freq_ghz: number
+    gpu_available: boolean
+    gpu_name: string | null
+    gpu_vram_gb: number | null
+    disk_free_gb: number
+    os_name: string
+    os_version: string
+    architecture: string
+  }
+  tier: {
+    tier: string
+    can_run_local_llm: boolean
+    recommended_model: string | null
+    reason: string
+  }
+  cpu_features: Record<string, boolean>
+}> {
+  return await api.get('/admin/system-check')
+}
+
+export async function getLocalLLMSettings(): Promise<{
+  enabled: boolean
+  model: string
+  can_run: boolean
+  tier: string | null
+  message: string
+}> {
+  return await api.get('/admin/local-llm/settings')
+}
+
+export async function getLocalModels(): Promise<{
+  models: Record<string, {
+    name: string
+    params: string
+    tier: string
+    requirements: {
+      ram_gb: number
+      cpu_cores: number
+      disk_gb: number
+      gpu_vram_gb: number | null
+    }
+    download_url: string
+    format: string
+    context_length: number
+    quantization: string
+    downloaded: boolean
+  }>
+  downloaded: string[]
+  storage_info: {
+    model_count: number
+    total_size_gb: number
+    models_dir: string
+  }
+}> {
+  return await api.get('/admin/local-llm/models')
+}
+
+export async function downloadLocalModel(modelId: string): Promise<{
+  success: boolean
+  message: string
+}> {
+  return await api.post(`/admin/local-llm/download/${modelId}`)
+}
+
+export async function deleteLocalModel(modelId: string): Promise<{
+  success: boolean
+  message: string
+}> {
+  return await api.delete(`/admin/local-llm/delete/${modelId}`)
+}

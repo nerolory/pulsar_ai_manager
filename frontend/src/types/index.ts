@@ -58,6 +58,13 @@ export interface ModelInfo {
   context_length: number
   pricing?: Record<string, unknown> | null
   free_tier: boolean
+  is_free?: boolean
+  daily_limit?: number
+  requires_payment?: boolean
+  model_group_id?: string
+  balance?: number
+  limit_period?: string
+  limit_tokens?: number
 }
 
 export interface ChatParams {

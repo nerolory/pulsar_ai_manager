@@ -73,7 +73,7 @@ watch(() => chatStore.error, (error) => {
 })
 
 onMounted(async () => {
-  await settingsStore.loadProviderConfig()
+  await settingsStore.loadAllSettings()
   await chatStore.loadChats()
   if (!chatStore.activeChat) chatStore.createChat()
 })

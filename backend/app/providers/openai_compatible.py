@@ -30,6 +30,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             {"role": message.role, "content": message.content if isinstance(message.content, str) else [part.model_dump(exclude_none=True) for part in message.content]}
             for message in request.messages
         ]
+        
         stream = await self._client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -37,10 +38,14 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             max_tokens=request.max_tokens,
             stream=True,
         )
+        
         async for chunk in stream:
-            token = chunk.choices[0].delta.content
-            if token:
-                yield token
+            if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
+                choice = chunk.choices[0]
+                if hasattr(choice, 'delta') and hasattr(choice.delta, 'content'):
+                    token = choice.delta.content
+                    if token:
+                        yield token
 
     async def health_check(self) -> bool:
         """Check if provider API is accessible."""
@@ -73,13 +78,25 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             models = await self._client.models.list()
             result = []
             for model in models.data:
-                result.append(ModelInfo(
+                model_info = ModelInfo(
                     id=model.id,
                     name=getattr(model, 'name', model.id),
                     context_length=getattr(model, 'context_length', 4096),
                     pricing=getattr(model, 'pricing', None),
                     free_tier=self._is_free_tier(model),
-                ))
+                )
+                
+                # Add dynamic limit information if available
+                limit_info = self._get_model_limit(model)
+                if limit_info:
+                    if 'daily_limit' in limit_info:
+                        model_info.daily_limit = limit_info['daily_limit']
+                    if 'limit_tokens' in limit_info:
+                        model_info.limit_tokens = limit_info['limit_tokens']
+                    if 'is_free' in limit_info:
+                        model_info.is_free = limit_info['is_free']
+                
+                result.append(model_info)
             return result
         except Exception as e:
             logger.error(f"[{self._provider_name}] Failed to list models: {e}")
@@ -88,6 +105,10 @@ class OpenAICompatibleProvider(BaseLLMProvider):
     def _is_free_tier(self, model) -> bool:
         """Determine if model has free tier. Override in subclass for custom logic."""
         return False
+
+    def _get_model_limit(self, model) -> dict | None:
+        """Extract model limit information from API data. Override in subclass."""
+        return None
 
     async def check_balance(self) -> dict | None:
         """Check account balance. Not supported by default OpenAI-compatible API."""

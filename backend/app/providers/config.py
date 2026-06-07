@@ -18,6 +18,7 @@ PROVIDERS = [
     "mistral",
     "gemini",
     "gigachat",
+    "local_llm",
     "mock",
 ]
 
@@ -93,6 +94,13 @@ PROVIDER_METADATA: Dict[str, Dict[str, str]] = {
         "default_model": "",
         "base_url": "",
     },
+    "local_llm": {
+        "name": "Local LLM",
+        "desc": "Локальные модели на вашем ПК — Phi-3, Qwen, TinyLlama",
+        "key_placeholder": "",
+        "default_model": "phi-3-mini-3.8b",
+        "base_url": "",
+    },
     "mock": {
         "name": "Mock (тест)",
         "desc": "Тестовый провайдер без ключа — для разработки",
@@ -138,5 +146,6 @@ PROVIDER_MODEL_NAMES: Dict[str, str] = {
     "mistral": "Mistral Large",
     "gemini": "Gemini",
     "gigachat": "GigaChat",
+    "local_llm": "Phi-3 Mini",
     "mock": "Mock Model",
 }

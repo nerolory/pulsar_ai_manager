@@ -113,9 +113,27 @@ class ModelInfo(BaseModel):
         context_length: Maximum context window.
         pricing: Pricing information (optional).
         free_tier: Whether free tier is available.
+        is_free: Whether the model is completely free.
+        daily_limit: Daily limit in requests/tokens.
+        requires_payment: Whether payment is required.
+        model_group_id: Group ID for free/paid versions.
+        balance: Current balance for the model (optional).
+        limit_period: Period for daily limit (day, month, etc.).
+        limit_tokens: Token limit for the period.
+        downloaded: Whether the model is downloaded (for local models).
+        can_run: Whether the system can run this model (for local models).
     """
     id: str
     name: str
     context_length: int = 4096
     pricing: Optional[dict] = None
     free_tier: bool = False
+    is_free: bool = False
+    daily_limit: Optional[int] = None
+    requires_payment: bool = False
+    model_group_id: Optional[str] = None
+    balance: Optional[float] = None
+    limit_period: Optional[str] = None
+    limit_tokens: Optional[int] = None
+    downloaded: bool = False
+    can_run: bool = True

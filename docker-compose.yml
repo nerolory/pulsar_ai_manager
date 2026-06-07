@@ -12,6 +12,13 @@ services:
       RELOAD: "true"         # uvicorn перезапускается при изменении .py файлов
       NO_PROXY: "*"
       no_proxy: "*"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     ports:
       - "8000:8000"
     volumes:

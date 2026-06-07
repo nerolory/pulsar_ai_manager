@@ -96,6 +96,11 @@ def init_provider(provider: str, api_key: str | None, model: str | None, base_ur
             api_key=api_key,
             model=model or "gemini-2.0-flash-exp",
         ))
+    elif provider == "local_llm":
+        from app.providers.local_llm import LocalLLMProvider
+        set_provider(LocalLLMProvider(
+            model=model or "phi-3-mini-3.8b",
+        ))
     else:
         raise ValueError(f"Unknown provider: {provider}")
     logger.info(f"Provider set to: {provider}")
@@ -327,6 +332,37 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
                 if free:
                     models = [m for m in models if m.get("is_free", False)]
                 return {"models": models, "source": "cache"}
+            # If no cache and provider is not active, try to initialize it temporarily
+            # This allows fetching models for vsellm without activating it
+            from app.storage import load_provider_config
+            config = load_provider_config()
+            if config and config.get("provider") == provider:
+                # Temporarily initialize the provider to fetch models
+                try:
+                    init_provider(
+                        provider,
+                        config.get("api_key"),
+                        config.get("model"),
+                        config.get("base_url")
+                    )
+                    temp_provider = get_provider()
+                    if temp_provider:
+                        models = await temp_provider.list_models()
+                        await cache_models(provider, models)
+                        if free:
+                            models = [m for m in models if m.get("is_free", False)]
+                        # Restore original provider
+                        if config.get("provider"):
+                            init_provider(
+                                config.get("provider"),
+                                config.get("api_key"),
+                                config.get("model"),
+                                config.get("base_url")
+                            )
+                        return {"models": models, "source": "api"}
+                except Exception as e:
+                    logger.error(f"Failed to fetch models for provider {provider}: {e}")
+                    return {"models": [], "source": "cache", "message": f"Failed to fetch models: {str(e)}"}
             return {"models": [], "source": "cache", "message": "No cached models available. Please activate this provider first."}
     else:
         provider_instance = get_provider()

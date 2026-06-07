@@ -74,18 +74,97 @@ def get_system_specs() -> SystemSpecs:
     gpu_name = None
     gpu_vram_gb = None
     
-    try:
-        import GPUtil
-        gpus = GPUtil.getGPUs()
-        if gpus:
-            gpu_available = True
-            gpu = gpus[0]
-            gpu_name = gpu.name
-            gpu_vram_gb = gpu.memoryTotal / 1024
-    except ImportError:
-        logger.debug("GPUtil not installed, GPU detection skipped")
-    except Exception as e:
-        logger.debug(f"GPU detection failed: {e}")
+    # Check for manual GPU override from environment
+    import os
+    manual_gpu_name = os.environ.get('MANUAL_GPU_NAME')
+    manual_gpu_vram = os.environ.get('MANUAL_GPU_VRAM')
+    
+    if manual_gpu_name and manual_gpu_vram:
+        gpu_available = True
+        gpu_name = manual_gpu_name
+        gpu_vram_gb = float(manual_gpu_vram)
+        logger.info(f"Using manual GPU override: {gpu_name} ({gpu_vram_gb}GB)")
+    else:
+        # 1. Try pynvml (NVIDIA, works natively on host)
+        try:
+            import pynvml
+            pynvml.nvmlInit()
+            device_count = pynvml.nvmlDeviceGetCount()
+            if device_count > 0:
+                gpu_available = True
+                handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+                gpu_name = pynvml.nvmlDeviceGetName(handle)
+                mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                gpu_vram_gb = mem_info.total / (1024**3)
+                logger.info(f"NVIDIA GPU detected via pynvml: {gpu_name}")
+            pynvml.nvmlShutdown()
+        except Exception:
+            pass
+
+        # 2. If not found, try nvidia-smi (works on host, fails in Docker without GPU passthrough)
+        if not gpu_available:
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ['nvidia-smi', '--query-gpu=name,memory.total', '--format=csv,noheader,nounits'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    parts = result.stdout.strip().split(',')
+                    if len(parts) >= 2:
+                        gpu_available = True
+                        gpu_name = parts[0].strip()
+                        gpu_vram_gb = float(parts[1].strip()) / 1024  # MiB -> GB
+                        logger.info(f"NVIDIA GPU detected via nvidia-smi: {gpu_name}")
+            except Exception as e:
+                logger.debug(f"nvidia-smi failed: {e}")
+
+        # 3. Fallback: WMI for Windows (detects NVIDIA, AMD, Intel — any GPU)
+        if not gpu_available and platform.system() == 'Windows':
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ['powershell', '-Command',
+                     'Get-WmiObject Win32_VideoController | Select-Object -First 1 Name,AdapterRAM | ConvertTo-Csv -NoTypeInformation'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    lines = [l.strip().strip('"') for l in result.stdout.strip().split('\n') if l.strip()]
+                    if len(lines) >= 2:
+                        header = [h.strip().strip('"') for h in lines[0].split(',')]
+                        values = [v.strip().strip('"') for v in lines[1].split(',')]
+                        row = dict(zip(header, values))
+                        name = row.get('Name', '')
+                        vram_bytes = row.get('AdapterRAM', '0')
+                        if name and name != 'NULL':
+                            gpu_available = True
+                            gpu_name = name
+                            try:
+                                gpu_vram_gb = int(vram_bytes) / (1024**3)
+                            except Exception:
+                                gpu_vram_gb = 0
+                            logger.info(f"GPU detected via WMI: {gpu_name}")
+            except Exception as e:
+                logger.debug(f"WMI GPU detection failed: {e}")
+
+        # 4. Fallback: /sys/class/drm for Linux (AMD, Intel, NVIDIA)
+        if not gpu_available and platform.system() == 'Linux':
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ['lspci', '-v'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    for line in result.stdout.split('\n'):
+                        if 'VGA compatible' in line or '3D controller' in line:
+                            if any(v in line for v in ['NVIDIA', 'AMD', 'ATI', 'Intel']):
+                                gpu_available = True
+                                gpu_name = line.split(':')[-1].strip()
+                                logger.info(f"GPU detected via lspci: {gpu_name}")
+                                break
+            except Exception as e:
+                logger.debug(f"lspci GPU detection failed: {e}")
     
     # Disk
     disk = psutil.disk_usage('/')

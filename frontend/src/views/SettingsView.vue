@@ -38,12 +38,29 @@
               <div class="cp-info">
                 <div class="cp-label">Провайдер:</div>
                 <div class="cp-value">{{ providers?.find(p => p.id === settingsStore.activeProvider)?.name }}</div>
-                <div class="cp-balance">Баланс: {{ getProviderBalance(settingsStore.activeProvider) }}</div>
+                <div class="cp-balance" v-if="settingsStore.activeProvider !== 'local_llm'">Баланс: {{ getProviderBalance(settingsStore.activeProvider) }}</div>
               </div>
               <div class="cp-divider" />
               <div class="cp-info">
                 <div class="cp-label">Модель:</div>
                 <div class="cp-value">{{ settingsStore.activeModel }}</div>
+              </div>
+              <!-- Local LLM specific UI -->
+              <div v-if="settingsStore.activeProvider === 'local_llm'" class="local-llm-status">
+                <div v-if="localLLMStatus.loading" class="status-message">Проверка системы...</div>
+                <div v-else-if="!localLLMStatus.canRun" class="status-message error">
+                  ⚠️ {{ localLLMStatus.message }}
+                </div>
+                <div v-else-if="localLLMStatus.downloadedCount === 0" class="status-message warning">
+                  ⚠️ Нет установленных моделей
+                </div>
+                <button 
+                  v-if="localLLMStatus.canRun && localLLMStatus.downloadedCount === 0"
+                  class="btn btn-primary" 
+                  @click="activeSection = 'local'"
+                >
+                  Установить модель
+                </button>
               </div>
               <button class="btn btn-primary" @click="openSetup()">Изменить</button>
             </div>
@@ -104,6 +121,11 @@
               <input v-model.number="chatStore.params.maxTokens" type="range" min="256" max="8192" step="256">
             </div>
           </div>
+        </template>
+
+        <!-- Local Models -->
+        <template v-else-if="activeSection === 'local'">
+          <LocalModels />
         </template>
 
         <!-- Appearance -->
@@ -202,16 +224,12 @@
               <!-- Model selector -->
               <div class="field-group">
                 <label class="field-label">Модель</label>
-                <div v-if="setupModal.providerModels.length > 1" class="model-select-wrapper">
-                  <select
-                    v-model="setupModal.model"
-                    class="field-input"
-                  >
-                    <option value="">Выберите модель</option>
-                    <option v-for="model in setupModal.providerModels" :key="model.id" :value="model.id">
-                      {{ model.name }} {{ model.free_tier ? '(бесплатно)' : '' }}
-                    </option>
-                  </select>
+                <div v-if="setupModal.providerModels.length > 0" class="model-select-container">
+                  <ModelSelect
+                    :models="setupModal.providerModels"
+                    :model-id="setupModal.model"
+                    @select="onModelSelect"
+                  />
                   <button
                     class="refresh-models-btn"
                     @click="refreshProviderModels"
@@ -220,9 +238,6 @@
                   >
                     🔄
                   </button>
-                </div>
-                <div v-else-if="setupModal.providerModels.length === 1" class="model-display">
-                  {{ setupModal.providerModels[0].name }} {{ setupModal.providerModels[0].free_tier ? '(бесплатно)' : '' }}
                 </div>
                 <div v-else class="model-display">
                   {{ providers?.find(p => p.id === setupModal.provider)?.modelName || 'Модель по умолчанию' }}
@@ -332,8 +347,10 @@ import { useSettingsStore } from '@/stores/settings'
 import { useChatStore } from '@/stores/chat'
 import { useToast } from '@/composables/useToast'
 import { useTheme } from '@/composables/useTheme'
-import { testPrompt, getModels, refreshModels, detectProvider, getBalance } from '@/api/settings'
+import { testPrompt, getModels, refreshModels, detectProvider, getBalance, getLocalLLMSettings, getLocalModels } from '@/api/settings'
 import type { ProviderName, ModelInfo } from '@/types'
+import ModelSelect from '@/components/ModelSelect.vue'
+import LocalModels from '@/components/LocalModels.vue'
 
 const emit = defineEmits<{ back: [] }>()
 
@@ -345,9 +362,20 @@ const { themes, currentTheme, setTheme } = useTheme()
 const activeSection = ref('providers')
 const activeSectionMeta = computed(() => sections.find(section => section.id === activeSection.value))
 const providerBalance = ref<string | null>(null)
+const localLLMStatus = reactive({
+  loading: false,
+  canRun: false,
+  message: '',
+  downloadedCount: 0
+})
+
+const formatNumber = (num: number): string => {
+  return num.toLocaleString('ru-RU')
+}
 
 const sections = [
   { id: 'providers', icon: '🤖', label: 'Провайдеры ИИ' },
+  { id: 'local',     icon: '💻', label: 'Локальные модели' },
   { id: 'chat',      icon: '💬', label: 'Чат' },
   { id: 'appearance',icon: '🎨', label: 'Внешний вид' },
   { id: 'privacy',   icon: '🔒', label: 'Приватность' },
@@ -384,12 +412,7 @@ const setupModal = reactive({
 
 
 onMounted(async () => {
-  await settingsStore.loadProvidersMetadata()
-  await settingsStore.loadProviderConfig()
-  if (settingsStore.activeProvider) {
-    await settingsStore.loadCapabilities()
-    await settingsStore.loadModels()
-  }
+  await settingsStore.loadAllSettings()
 })
 
 function openSetup() {
@@ -451,6 +474,10 @@ async function onProviderChange() {
   }
 }
 
+function onModelSelect(model: ModelInfo) {
+  setupModal.model = model.id
+}
+
 async function refreshProviderModels() {
   if (!setupModal.provider) return
 
@@ -491,6 +518,26 @@ async function loadProviderBalance() {
   } catch (error) {
     console.error('Failed to load balance:', error)
     providerBalance.value = 'не отслеживается'
+  }
+}
+
+async function loadLocalLLMStatus() {
+  if (settingsStore.activeProvider !== 'local_llm') return
+  
+  localLLMStatus.loading = true
+  try {
+    const settings = await getLocalLLMSettings()
+    localLLMStatus.canRun = settings.can_run
+    localLLMStatus.message = settings.message
+    
+    const models = await getLocalModels()
+    localLLMStatus.downloadedCount = models.downloaded.length
+  } catch (error) {
+    console.error('Failed to load local LLM status:', error)
+    localLLMStatus.canRun = false
+    localLLMStatus.message = 'Ошибка проверки системы'
+  } finally {
+    localLLMStatus.loading = false
   }
 }
 
@@ -551,12 +598,6 @@ async function runPromptTest() {
   }
 }
 
-function formatNumber(num: number): string {
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
-  return num.toString()
-}
-
 async function refreshModels() {
   try {
     await settingsStore.refreshModelsList()
@@ -573,6 +614,7 @@ onMounted(async () => {
     await settingsStore.loadCapabilities()
     await settingsStore.loadModels()
     await loadProviderBalance()
+    await loadLocalLLMStatus()
   }
 })
 
@@ -580,6 +622,7 @@ watch(() => settingsStore.activeProvider, async (newProvider) => {
   if (newProvider) {
     providerBalance.value = null
     await loadProviderBalance()
+    await loadLocalLLMStatus()
   }
 })
 </script>
@@ -807,13 +850,33 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   height: 40px;
   background: var(--brd);
 }
+.local-llm-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--rs);
+  background: var(--bg-gh);
+  border: 1px solid var(--brd);
+  margin-top: 8px;
+}
+.status-message {
+  font-size: 12px;
+  color: var(--t2);
+}
+.status-message.error {
+  color: var(--error);
+}
+.status-message.warning {
+  color: #f57c00;
+}
 
-.model-select-wrapper {
+.model-select-container {
   display: flex;
   gap: 8px;
   align-items: center;
 }
-.model-select-wrapper select {
+.model-select-container :deep(.model-select-wrapper) {
   flex: 1;
 }
 .model-display {
