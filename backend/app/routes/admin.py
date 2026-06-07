@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from loguru import logger
 from app.database import get_current_schema_version, run_pending_migrations, upgrade_schema
+from app.system_check import get_system_specs, check_hardware_tier, check_cpu_features
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -70,3 +71,100 @@ async def upgrade(from_version: int, to_version: int):
     except Exception as e:
         logger.error(f"Upgrade failed: {e}")
         raise HTTPException(status_code=500, detail=f"Upgrade failed: {str(e)}")
+
+
+class SystemSpecsResponse(BaseModel):
+    """System specifications response."""
+    total_ram_gb: float
+    available_ram_gb: float
+    cpu_cores: int
+    cpu_threads: int
+    cpu_freq_ghz: float
+    gpu_available: bool
+    gpu_name: str | None
+    gpu_vram_gb: float | None
+    disk_free_gb: float
+    os_name: str
+    os_version: str
+    architecture: str
+
+
+class HardwareTierResponse(BaseModel):
+    """Hardware tier response."""
+    tier: str
+    can_run_local_llm: bool
+    recommended_model: str | None
+    reason: str
+
+
+class SystemCheckResponse(BaseModel):
+    """Complete system check response."""
+    specs: SystemSpecsResponse
+    tier: HardwareTierResponse
+    cpu_features: dict[str, bool]
+
+
+@router.get("/system-check", response_model=SystemCheckResponse)
+async def check_system():
+    """Check system specifications and hardware tier for local LLM support"""
+    try:
+        specs = get_system_specs()
+        tier = check_hardware_tier(specs)
+        cpu_features = check_cpu_features()
+        
+        return SystemCheckResponse(
+            specs=SystemSpecsResponse(**specs),
+            tier=HardwareTierResponse(**tier),
+            cpu_features=cpu_features
+        )
+    except Exception as e:
+        logger.error(f"System check failed: {e}")
+        raise HTTPException(status_code=500, detail=f"System check failed: {str(e)}")
+
+
+class LocalLLMSettingsResponse(BaseModel):
+    """Local LLM settings response."""
+    enabled: bool
+    model: str
+    can_run: bool
+    tier: str | None
+    message: str
+
+
+@router.get("/local-llm/settings", response_model=LocalLLMSettingsResponse)
+async def get_local_llm_settings():
+    """Get local LLM settings and check if system can run it"""
+    from app.configs import settings
+    
+    try:
+        specs = get_system_specs()
+        tier = check_hardware_tier(specs)
+        
+        if not settings.local_llm_enabled:
+            return LocalLLMSettingsResponse(
+                enabled=False,
+                model=settings.local_llm_model,
+                can_run=tier["can_run_local_llm"],
+                tier=tier["tier"],
+                message="Local LLM is disabled in settings"
+            )
+        
+        if not tier["can_run_local_llm"]:
+            return LocalLLMSettingsResponse(
+                enabled=True,
+                model=settings.local_llm_model,
+                can_run=False,
+                tier=tier["tier"],
+                message=f"System does not meet requirements: {tier['reason']}"
+            )
+        
+        return LocalLLMSettingsResponse(
+            enabled=True,
+            model=settings.local_llm_model,
+            can_run=True,
+            tier=tier["tier"],
+            message=f"System can run local LLM. Recommended: {tier['recommended_model']}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to get local LLM settings: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get local LLM settings: {str(e)}")
