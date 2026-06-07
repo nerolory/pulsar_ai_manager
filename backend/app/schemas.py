@@ -68,7 +68,19 @@ class SettingsPayload(BaseModel):
         model: Model name override.
         base_url: Optional custom API base URL.
     """
-    provider: Literal["openrouter", "vsellm", "openai", "gigachat", "mock"]
+    provider: Literal[
+        "openrouter",
+        "vsellm",
+        "openai",
+        "anthropic",
+        "groq",
+        "cerebras",
+        "qwen",
+        "mistral",
+        "gemini",
+        "gigachat",
+        "mock",
+    ]
     api_key: Optional[str] = None
     model: Optional[str] = None
     base_url: Optional[str] = None

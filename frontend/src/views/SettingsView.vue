@@ -201,6 +201,12 @@ const providers = [
   { id: 'vsellm',     name: 'VseLLM',         desc: 'GPT-4o, Claude, Gemini и другие · api.vsellm.ru',          keyPlaceholder: 'sk-...',          defaultModel: 'openai/gpt-4o-mini' },
   { id: 'openrouter', name: 'OpenRouter',      desc: 'Qwen3, LLaMA 3.3, Mistral и 200+ моделей · Бесплатные доступны', keyPlaceholder: 'sk-or-v1-...',   defaultModel: 'qwen/qwen3-235b-a22b:free' },
   { id: 'openai',     name: 'OpenAI',          desc: 'GPT-4o, GPT-4.1, o1 — требуется API-ключ',                keyPlaceholder: 'sk-proj-...',     defaultModel: 'gpt-4o-mini' },
+  { id: 'anthropic',  name: 'Anthropic',       desc: 'Claude 3.5 Sonnet, Opus, Haiku — нативный API',           keyPlaceholder: 'sk-ant-...',     defaultModel: 'claude-3-5-sonnet-20241022' },
+  { id: 'groq',       name: 'Groq',            desc: 'Llama 3.1, Mixtral — сверхбыстрая инференция',            keyPlaceholder: 'gsk_...',         defaultModel: 'llama-3.1-70b-versatile' },
+  { id: 'cerebras',   name: 'Cerebras',        desc: 'Llama 3.1, GPT-OSS — высокая скорость',                    keyPlaceholder: '...',             defaultModel: 'llama3.1-70b' },
+  { id: 'qwen',       name: 'Qwen (Alibaba)',  desc: 'Qwen 3 Max, 3.6 Plus — 1M токенов бесплатно/90 дней',     keyPlaceholder: 'sk-...',          defaultModel: 'qwen-max' },
+  { id: 'mistral',    name: 'Mistral AI',      desc: 'Mistral Large, Mixtral — нативный API',                   keyPlaceholder: '...',             defaultModel: 'mistral-large-latest' },
+  { id: 'gemini',     name: 'Google Gemini',   desc: 'Gemini 2.0 Flash, Pro — нативный API',                    keyPlaceholder: '...',             defaultModel: 'gemini-2.0-flash-exp' },
   { id: 'mock',       name: 'Mock (тест)',      desc: 'Тестовый провайдер без ключа — для разработки',           keyPlaceholder: '',                defaultModel: '' },
 ]
 

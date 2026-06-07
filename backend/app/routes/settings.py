@@ -18,7 +18,7 @@ def init_provider(provider: str, api_key: str | None, model: str | None, base_ur
     """Initialize the active LLM provider with the given credentials.
 
     Args:
-        provider: Provider identifier ("openrouter", "vsellm", "mock").
+        provider: Provider identifier ("openrouter", "vsellm", "anthropic", "groq", "cerebras", "qwen", "mistral", "gemini", "mock").
         api_key: API key for the selected provider.
         model: Model name to use.
         base_url: Optional custom base URL.
@@ -44,6 +44,54 @@ def init_provider(provider: str, api_key: str | None, model: str | None, base_ur
         set_provider(VseLLMProvider(
             api_key=api_key,
             model=model or "openai/gpt-4o-mini",
+        ))
+    elif provider == "anthropic":
+        if not api_key:
+            raise ValueError("api_key required for Anthropic")
+        from app.providers.anthropic import AnthropicProvider
+        set_provider(AnthropicProvider(
+            api_key=api_key,
+            model=model or "claude-3-5-sonnet-20241022",
+        ))
+    elif provider == "groq":
+        if not api_key:
+            raise ValueError("api_key required for Groq")
+        from app.providers.groq import GroqProvider
+        set_provider(GroqProvider(
+            api_key=api_key,
+            model=model or "llama-3.1-70b-versatile",
+        ))
+    elif provider == "cerebras":
+        if not api_key:
+            raise ValueError("api_key required for Cerebras")
+        from app.providers.cerebras import CerebrasProvider
+        set_provider(CerebrasProvider(
+            api_key=api_key,
+            model=model or "llama3.1-70b",
+        ))
+    elif provider == "qwen":
+        if not api_key:
+            raise ValueError("api_key required for Qwen")
+        from app.providers.qwen import QwenProvider
+        set_provider(QwenProvider(
+            api_key=api_key,
+            model=model or "qwen-max",
+        ))
+    elif provider == "mistral":
+        if not api_key:
+            raise ValueError("api_key required for Mistral")
+        from app.providers.mistral import MistralProvider
+        set_provider(MistralProvider(
+            api_key=api_key,
+            model=model or "mistral-large-latest",
+        ))
+    elif provider == "gemini":
+        if not api_key:
+            raise ValueError("api_key required for Gemini")
+        from app.providers.gemini import GeminiProvider
+        set_provider(GeminiProvider(
+            api_key=api_key,
+            model=model or "gemini-2.0-flash-exp",
         ))
     else:
         raise ValueError(f"Unknown provider: {provider}")

@@ -29,7 +29,7 @@ export interface Chat {
   updatedAt: number
 }
 
-export type ProviderName = 'vsellm' | 'openrouter' | 'openai' | 'mock'
+export type ProviderName = 'vsellm' | 'openrouter' | 'openai' | 'anthropic' | 'groq' | 'cerebras' | 'qwen' | 'mistral' | 'gemini' | 'mock'
 
 export interface ProviderConfig {
   provider: ProviderName

@@ -48,7 +48,7 @@ export async function streamChat(
       let message = `HTTP ${response.status}`
       try {
         const json = JSON.parse(text)
-        message = json.detail ?? json.message ?? text
+        message = json.error ?? json.detail ?? json.message ?? text
       } catch {
         message = text || message
       }
