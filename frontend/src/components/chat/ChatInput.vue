@@ -1,16 +1,16 @@
 <template>
-  <div class="inp-zone">
-    <div v-if="attachedImages.length" class="img-previews">
-      <div v-for="(img, index) in attachedImages" :key="index" class="img-preview">
+  <div class="chat-input">
+    <div v-if="attachedImages.length" class="chat-input__previews">
+      <div v-for="(img, index) in attachedImages" :key="index" class="chat-input__preview">
         <img :src="img.dataUrl" />
-        <button class="img-rm" @click="removeImage(index)" title="Удалить">✕</button>
+        <button class="chat-input__preview-remove" @click="removeImage(index)" title="Удалить">✕</button>
       </div>
     </div>
-    <div class="inp-wrap">
+    <div class="chat-input__wrapper">
       <textarea
         ref="ta"
         v-model="text"
-        class="inp-ta"
+        class="chat-input__textarea"
         placeholder="Напишите сообщение..."
         rows="1"
         @keydown.enter.exact.prevent="submit"
@@ -18,11 +18,11 @@
         @input="autoResize"
         @paste="onPaste"
       />
-      <div class="inp-acts">
+      <div class="chat-input__actions">
         <button
           v-if="voiceSupported"
-          class="ia-btn mic-btn"
-          :class="{ recording: voiceState === 'recording', processing: voiceState === 'processing' }"
+          class="chat-input__action-btn chat-input__action-btn--mic"
+          :class="{ 'chat-input__action-btn--recording': voiceState === 'recording', 'chat-input__action-btn--processing': voiceState === 'processing' }"
           :title="voiceState === 'recording' ? 'Остановить запись' : voiceState === 'processing' ? 'Обработка...' : 'Голосовой ввод'"
           :disabled="voiceState === 'processing'"
           @click="onVoiceToggle"
@@ -33,10 +33,10 @@
             <line x1="12" y1="19" x2="12" y2="23"/>
             <line x1="8" y1="23" x2="16" y2="23"/>
           </svg>
-          <span v-else-if="voiceState === 'recording'" class="mic-pulse">●</span>
-          <span v-else class="mic-spin">⟳</span>
+          <span v-else-if="voiceState === 'recording'" class="chat-input__mic-pulse">●</span>
+          <span v-else class="chat-input__mic-spin">⟳</span>
         </button>
-        <button class="ia-btn" title="Прикрепить изображение" @click="openFilePicker">
+        <button class="chat-input__action-btn" title="Прикрепить изображение" @click="openFilePicker">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B7355" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="#E8E8E8"></path>
             <circle cx="12" cy="13" r="4" fill="#A0A0A0"></circle>
@@ -47,19 +47,19 @@
           type="file"
           accept="image/*"
           multiple
-          class="file-input-hidden"
+          class="chat-input__file-input"
           @change="onFileChange"
         />
         <button
-          class="tune-btn"
-          :class="{ on: tuneOpen }"
+          class="chat-input__tune-btn"
+          :class="{ 'chat-input__tune-btn--active': tuneOpen }"
           data-tip="Тонкая настройка"
           title=""
           @click="emit('toggleTune')"
         >⚙</button>
         <button
-          class="snd"
-          :class="{ stop: streaming }"
+          class="chat-input__send-btn"
+          :class="{ 'chat-input__send-btn--stop': streaming }"
           :title="streaming ? 'Остановить' : 'Отправить'"
           @click="streaming ? emit('stop') : submit()"
         >
@@ -67,7 +67,7 @@
         </button>
       </div>
     </div>
-    <div class="inp-hint">Enter — отправить · Shift+Enter — перенос строки</div>
+    <div class="chat-input__hint">Enter — отправить · Shift+Enter — перенос строки</div>
   </div>
 </template>
 
@@ -186,29 +186,29 @@ function autoResize() {
 </script>
 
 <style scoped>
-.inp-zone {
+.chat-input {
   padding: 12px 16px 14px; border-top: 1px solid var(--brd);
   background: rgba(255,255,255,0.02); flex-shrink: 0;
 }
-.inp-wrap {
+.chat-input__wrapper {
   display: flex; align-items: center; gap: 8px;
   background: var(--bg-g); border: 1px solid var(--brd);
   border-radius: var(--r); padding: 8px 10px;
   transition: border-color .15s;
 }
-.inp-wrap:focus-within { border-color: var(--brd-a); }
+.chat-input__wrapper:focus-within { border-color: var(--brd-a); }
 
-.inp-ta {
+.chat-input__textarea {
   flex: 1; background: none; border: none; outline: none; resize: none;
   font-family: inherit; font-size: 13.5px; color: var(--t1);
   line-height: 2; min-height: 24px; max-height: 200px;
   scrollbar-width: thin;
 }
-.inp-ta::placeholder { color: var(--t3); }
+.chat-input__textarea::placeholder { color: var(--t3); }
 
-.inp-acts { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.chat-input__actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-.ia-btn {
+.chat-input__action-btn {
   width: 32px; height: 32px; border-radius: 8px;
   background: var(--bg-s); border: 1px solid var(--brd);
   color: var(--t2); font-size: 16px; cursor: pointer;
@@ -216,51 +216,51 @@ function autoResize() {
   transition: all .14s;
   flex-shrink: 0;
 }
-.ia-btn:hover { color: var(--t1); border-color: var(--brd-a); background: var(--bg-gh); }
+.chat-input__action-btn:hover { color: var(--t1); border-color: var(--brd-a); background: var(--bg-gh); }
 
-.tune-btn {
+.chat-input__tune-btn {
   position: relative; width: 32px; height: 32px; border-radius: 8px;
   background: var(--bg-s); border: 1px solid var(--brd);
   color: var(--t2); font-size: 16px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: all .14s; flex-shrink: 0;
 }
-.tune-btn:hover { color: var(--t1); border-color: var(--brd-a); background: var(--bg-gh); }
-.tune-btn.on { color: var(--accent-l); border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.1); }
-.tune-btn::after {
+.chat-input__tune-btn:hover { color: var(--t1); border-color: var(--brd-a); background: var(--bg-gh); }
+.chat-input__tune-btn--active { color: var(--accent-l); border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.1); }
+.chat-input__tune-btn::after {
   content: attr(data-tip);
   position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
   background: var(--bg-panel); border: 1px solid var(--brd); border-radius: 6px;
   padding: 4px 9px; font-size: 11px; color: var(--t1); white-space: nowrap;
   pointer-events: none; opacity: 0; transition: opacity .15s;
 }
-.tune-btn:hover::after { opacity: 1; }
+.chat-input__tune-btn:hover::after { opacity: 1; }
 
-.snd {
+.chat-input__send-btn {
   width: 32px; height: 32px; border-radius: 8px;
   background: var(--accent); border: none;
   color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all .15s; flex-shrink: 0;
 }
-.snd:hover { background: var(--accent-l); }
-.snd.stop { background: rgba(239,68,68,0.8); }
-.snd.stop:hover { background: #ef4444; }
+.chat-input__send-btn:hover { background: var(--accent-l); }
+.chat-input__send-btn--stop { background: rgba(239,68,68,0.8); }
+.chat-input__send-btn--stop:hover { background: #ef4444; }
 
-.inp-hint { font-size: 10px; color: var(--t3); margin-top: 6px; text-align: center; }
+.chat-input__hint { font-size: 10px; color: var(--t3); margin-top: 6px; text-align: center; }
 
-.img-previews {
+.chat-input__previews {
   display: flex; gap: 8px; flex-wrap: wrap;
   padding: 6px 0 4px;
 }
-.img-preview {
+.chat-input__preview {
   position: relative; flex-shrink: 0;
 }
-.img-preview img {
+.chat-input__preview img {
   width: 72px; height: 72px; object-fit: cover;
   border-radius: 8px; border: 1px solid var(--brd); display: block;
 }
-.img-rm {
+.chat-input__preview-remove {
   position: absolute; top: -6px; right: -6px;
   width: 18px; height: 18px; border-radius: 50%;
   background: rgba(239,68,68,0.85); border: none;
@@ -268,25 +268,25 @@ function autoResize() {
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   line-height: 1;
 }
-.img-rm:hover { background: #ef4444; }
-.file-input-hidden { display: none; }
+.chat-input__preview-remove:hover { background: #ef4444; }
+.chat-input__file-input { display: none; }
 
-.mic-btn.recording {
+.chat-input__action-btn--recording {
   color: #ef4444;
   border-color: rgba(239,68,68,0.5);
   background: rgba(239,68,68,0.1);
 }
-.mic-btn.processing {
+.chat-input__action-btn--processing {
   color: var(--accent-l);
   border-color: rgba(99,102,241,0.5);
   background: rgba(99,102,241,0.1);
   cursor: wait;
 }
-.mic-pulse {
+.chat-input__mic-pulse {
   font-size: 14px;
   animation: pulse 1s ease-in-out infinite;
 }
-.mic-spin {
+.chat-input__mic-spin {
   font-size: 16px;
   display: inline-block;
   animation: spin 1s linear infinite;
@@ -305,14 +305,14 @@ function autoResize() {
 /* Legacy desktop / laptops (1024px - 1440px) */
 @media (max-width: 1440px) {
   .chat-input { padding: 10px; }
-  .inp-box { border-radius: 10px; }
+  .chat-input__wrapper { border-radius: 10px; }
 }
 
 /* Tablet (768px - 1024px) */
 @media (max-width: 1024px) {
   .chat-input { padding: 8px; }
-  .inp-acts { padding: 0 6px; }
-  .send-btn { width: 32px; height: 32px; }
+  .chat-input__actions { padding: 0 6px; }
+  .chat-input__send-btn { width: 32px; height: 32px; }
 }
 
 /* Mobile (< 768px) */
@@ -322,23 +322,23 @@ function autoResize() {
     border-top: 1px solid var(--brd);
   }
 
-  .inp-box {
+  .chat-input__wrapper {
     border-radius: 8px;
   }
 
-  .ta {
+  .chat-input__textarea {
     min-height: 44px;
     max-height: 120px;
     padding: 10px 12px;
     font-size: 16px; /* Prevents zoom on iOS */
   }
 
-  .inp-acts {
+  .chat-input__actions {
     padding: 0 8px;
     height: 44px;
   }
 
-  .img-preview img {
+  .chat-input__preview img {
     width: 60px;
     height: 60px;
   }
@@ -347,17 +347,17 @@ function autoResize() {
 /* Small mobile (< 480px) */
 @media (max-width: 480px) {
   .chat-input { padding: 6px; }
-  .ta { padding: 8px 10px; font-size: 15px; }
+  .chat-input__textarea { padding: 8px 10px; font-size: 15px; }
 }
 
 /* Mobile landscape */
 @media (max-width: 768px) and (orientation: landscape) {
-  .ta { max-height: 80px; }
-  .img-previews { max-height: 70px; overflow-x: auto; flex-wrap: nowrap; }
+  .chat-input__textarea { max-height: 80px; }
+  .chat-input__previews { max-height: 70px; overflow-x: auto; flex-wrap: nowrap; }
 }
 
 /* Touch devices */
 @media (hover: none) and (pointer: coarse) {
-  .ta { min-height: 44px; }
+  .chat-input__textarea { min-height: 44px; }
 }
 </style>

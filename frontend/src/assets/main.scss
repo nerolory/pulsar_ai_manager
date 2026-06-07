@@ -93,13 +93,13 @@ body::before {
   }
 }
 
-.bub p { margin: 0 0 6px; }
-.bub p:last-child { margin-bottom: 0; }
-.bub ul, .bub ol { padding-left: 18px; margin: 4px 0; }
-.bub li { margin: 2px 0; }
-.bub strong { color: var(--t1); font-weight: 600; }
-.bub em { color: var(--t2); }
-.bub blockquote {
+.message__bubble p { margin: 0 0 6px; }
+.message__bubble p:last-child { margin-bottom: 0; }
+.message__bubble ul, .message__bubble ol { padding-left: 18px; margin: 4px 0; }
+.message__bubble li { margin: 2px 0; }
+.message__bubble strong { color: var(--t1); font-weight: 600; }
+.message__bubble em { color: var(--t2); }
+.message__bubble blockquote {
   border-left: 3px solid var(--accent-border);
   padding-left: 10px;
   color: var(--t2);

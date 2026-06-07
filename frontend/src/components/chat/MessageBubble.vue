@@ -1,53 +1,53 @@
 <template>
-  <div :data-msg-id="message.id" class="msg" :class="message.role === 'user' ? 'u' : 'a'">
-    <div class="mav" :class="message.role === 'user' ? 'user' : 'ai'">
+  <div :data-msg-id="message.id" class="message" :class="message.role === 'user' ? 'message--user' : 'message--assistant'">
+    <div class="message__avatar" :class="message.role === 'user' ? 'message__avatar--user' : 'message__avatar--assistant'">
       {{ message.role === 'user' ? 'U' : '◉' }}
     </div>
-    <div class="mc">
-      <div class="mm">
-        <span class="mn" :class="message.role === 'user' ? 'u' : 'ai'">
+    <div class="message__content">
+      <div class="message__meta">
+        <span class="message__name" :class="message.role === 'user' ? 'message__name--user' : 'message__name--assistant'">
           {{ message.role === 'user' ? 'Вы' : ('Ответ от ' + (message.model || 'AI')) }}
         </span>
-        <span class="mt">{{ formatTime(message.createdAt) }}</span>
+        <span class="message__time">{{ formatTime(message.createdAt) }}</span>
       </div>
 
       <!-- Provider not configured hint -->
-      <div v-if="isProviderError" class="bub bub--hint">
-        <span class="hint-icon">⚙️</span>
+      <div v-if="isProviderError" class="message__bubble message__bubble--hint">
+        <span class="message__hint-icon">⚙️</span>
         <span>Провайдер не настроен. Перейдите в
-          <button class="hint-link" @click="emit('openSettings')">Настройки → Провайдеры ИИ</button>
+          <button class="message__hint-link" @click="emit('openSettings')">Настройки → Провайдеры ИИ</button>
           и подключите один из сервисов.</span>
       </div>
 
       <!-- Balance error with switch suggestion -->
-      <div v-else-if="isBalanceError" class="bub bub--hint bub--balance">
-        <span class="hint-icon">💰</span>
+      <div v-else-if="isBalanceError" class="message__bubble message__bubble--hint message__bubble--balance">
+        <span class="message__hint-icon">💰</span>
         <span>{{ textContent }}</span>
-        <button v-if="message.freeModelId" class="hint-btn" @click="emit('switchModel', message.freeModelId)">Переключиться</button>
-        <button class="hint-link" @click="emit('openSettings')">Пополнить баланс</button>
+        <button v-if="message.freeModelId" class="message__hint-btn" @click="emit('switchModel', message.freeModelId)">Переключиться</button>
+        <button class="message__hint-link" @click="emit('openSettings')">Пополнить баланс</button>
       </div>
 
       <!-- Typing indicator -->
-      <div v-else-if="message.role === 'assistant' && isLast && !message.content" class="bub">
-        <div class="typing"><div class="td" /><div class="td" /><div class="td" /></div>
+      <div v-else-if="message.role === 'assistant' && isLast && !message.content" class="message__bubble">
+        <div class="message__typing"><div class="message__typing-dot" /><div class="message__typing-dot" /><div class="message__typing-dot" /></div>
       </div>
 
       <!-- Normal message content -->
-      <div v-else class="bub">
-        <div v-for="(part, idx) in imageParts" :key="idx" class="msg-img">
+      <div v-else class="message__bubble">
+        <div v-for="(part, idx) in imageParts" :key="idx" class="message__image">
           <img :src="part.image_url!.url" />
         </div>
         <span v-if="textContent" v-html="renderedContent" />
       </div>
 
       <!-- Streaming cursor -->
-      <div v-if="message.role === 'assistant' && streaming && isLast && message.content" class="cursor-blink" />
+      <div v-if="message.role === 'assistant' && streaming && isLast && message.content" class="message__cursor" />
 
       <!-- TTS action -->
-      <div v-if="showTtsButton" class="msg-actions">
+      <div v-if="showTtsButton" class="message__actions">
         <button
-          class="msg-act-btn"
-          :class="{ active: isSpeaking }"
+          class="message__action-btn"
+          :class="{ 'message__action-btn--active': isSpeaking }"
           :title="isSpeaking ? 'Остановить' : 'Прочитать вслух'"
           @click="emit('toggleSpeak', message.id)"
         >
