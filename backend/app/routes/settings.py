@@ -7,10 +7,11 @@ running prompt compliance tests, and checking provider health status.
 from fastapi import APIRouter, HTTPException
 from app.schemas import SettingsPayload, HealthResponse, PromptTestResponse, ProviderCapabilities, ModelInfo
 from app.state import set_provider, get_provider
-from app.config import settings
+from app.configs import settings
 from app.storage import save_provider_config
 from app.database import cache_models, get_cached_models
 from app.providers.config import PROVIDERS, PROVIDER_METADATA, BASE_URL_TO_PROVIDER, OPENAI_COMPATIBLE_PROVIDERS, PROVIDER_MODEL_NAMES
+from app.configs.free_models import is_model_free, get_model_group, MODEL_GROUPS
 from loguru import logger
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -285,12 +286,13 @@ async def get_capabilities():
 
 
 @router.get("/models")
-async def get_models(refresh: bool = False, provider: str = None):
+async def get_models(refresh: bool = False, provider: str = None, free: bool = False):
     """Get list of available models for the current or specified provider.
 
     Args:
         refresh: Force refresh from API instead of using cache.
         provider: Optional provider ID to get models for (instead of active provider).
+        free: Filter to only return free models.
 
     Returns:
         dict: List of models with metadata.
@@ -299,12 +301,33 @@ async def get_models(refresh: bool = False, provider: str = None):
         HTTPException: If no provider is configured or fetching fails.
     """
     if provider:
-        # For non-active providers, only return cached models
+        # For non-active providers, try cache first
         cached = await get_cached_models(provider)
         if cached and not refresh:
-            return {"models": cached, "source": "cache"}
-        # If no cache or refresh forced, return empty list for non-active providers
-        return {"models": [], "source": "cache"}
+            models = cached
+            if free:
+                models = [m for m in models if m.get("is_free", False)]
+            return {"models": models, "source": "cache"}
+        # If refresh forced or no cache, try to get provider instance and fetch from API
+        provider_instance = get_provider()
+        if provider_instance is None:
+            # Can't fetch without active provider, return cache if available
+            if cached:
+                models = cached
+                if free:
+                    models = [m for m in models if m.get("is_free", False)]
+                return {"models": models, "source": "cache"}
+            return {"models": [], "source": "cache", "message": "No cached models available. Please activate this provider first."}
+        # Provider is active, fetch from API
+        provider_name = type(provider_instance).__name__.replace("Provider", "").lower()
+        if provider_name != provider:
+            # Requested provider is not the active one, return cache if available
+            if cached:
+                models = cached
+                if free:
+                    models = [m for m in models if m.get("is_free", False)]
+                return {"models": models, "source": "cache"}
+            return {"models": [], "source": "cache", "message": "No cached models available. Please activate this provider first."}
     else:
         provider_instance = get_provider()
         if provider_instance is None:
@@ -315,12 +338,32 @@ async def get_models(refresh: bool = False, provider: str = None):
     if not refresh:
         cached = await get_cached_models(provider_name)
         if cached:
-            return {"models": cached, "source": "cache"}
+            models = cached
+            if free:
+                models = [m for m in models if m.get("is_free", False)]
+            return {"models": models, "source": "cache"}
 
     # Fetch from provider
     try:
         models = await provider_instance.list_models()
         models_dict = [model.model_dump() for model in models]
+        
+        # Get provider balance if available
+        balance_info = await provider_instance.check_balance()
+        provider_balance = balance_info.get("balance") if balance_info else None
+        
+        # Add free model metadata and balance
+        for model in models_dict:
+            model_id = model.get("id", "")
+            model["is_free"] = is_model_free(model_id)
+            model["model_group_id"] = get_model_group(model_id)
+            # Add provider balance to each model (for providers with balance API)
+            if provider_balance is not None:
+                model["balance"] = provider_balance
+        
+        # Filter by free if requested
+        if free:
+            models_dict = [m for m in models_dict if m.get("is_free", False)]
 
         # Cache the results
         await cache_models(provider_name, models_dict)
@@ -329,6 +372,48 @@ async def get_models(refresh: bool = False, provider: str = None):
     except Exception as e:
         logger.error(f"Failed to fetch models: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch models: {str(e)}")
+
+
+@router.get("/model-groups")
+async def get_model_groups():
+    """Get list of model groups for free/paid version grouping.
+
+    Returns:
+        dict: List of model groups with metadata.
+    """
+    return {"groups": MODEL_GROUPS}
+
+
+@router.post("/switch-model")
+async def switch_model(model: str):
+    """Switch to a different model for the current provider.
+
+    Args:
+        model: Model ID to switch to.
+
+    Returns:
+        dict: Success message.
+
+    Raises:
+        HTTPException: If no provider is configured or switching fails.
+    """
+    provider = get_provider()
+    if provider is None:
+        raise HTTPException(status_code=503, detail="No provider configured")
+    
+    try:
+        # Update provider with new model
+        provider.model = model
+        # Save to storage
+        from app.storage import get_provider_config
+        config = await get_provider_config()
+        if config:
+            config["model"] = model
+            await save_provider_config(config)
+        return {"success": True, "model": model}
+    except Exception as e:
+        logger.error(f"Failed to switch model: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to switch model: {str(e)}")
 
 
 @router.post("/refresh-models")

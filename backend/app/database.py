@@ -55,6 +55,40 @@ async def init_db() -> None:
         except Exception:
             pass  # column already exists
 
+        # Migration: add model limit columns to model_cache if missing
+        try:
+            await db.execute("ALTER TABLE model_cache ADD COLUMN daily_limit INTEGER")
+            await db.commit()
+            logger.info("Migration: daily_limit column added to model_cache")
+        except Exception:
+            pass  # column already exists
+        
+        try:
+            await db.execute("ALTER TABLE model_cache ADD COLUMN limit_tokens INTEGER")
+            await db.commit()
+            logger.info("Migration: limit_tokens column added to model_cache")
+        except Exception:
+            pass  # column already exists
+        
+        try:
+            await db.execute("ALTER TABLE model_cache ADD COLUMN balance REAL")
+            await db.commit()
+            logger.info("Migration: balance column added to model_cache")
+        except Exception:
+            pass  # column already exists
+        
+        try:
+            await db.execute("ALTER TABLE model_cache ADD COLUMN is_free BOOLEAN DEFAULT 0")
+            await db.commit()
+            logger.info("Migration: is_free column added to model_cache")
+        except Exception:
+            pass  # column already exists
+
+        # Clear old cache to force refresh with new schema
+        await db.execute("DELETE FROM model_cache")
+        await db.commit()
+        logger.info("Cleared old model cache to force refresh with new schema")
+
         # Create model_cache table for caching provider models
         await db.execute("""
             CREATE TABLE IF NOT EXISTS model_cache (
@@ -64,6 +98,10 @@ async def init_db() -> None:
                 context_length INTEGER DEFAULT 4096,
                 pricing TEXT,
                 free_tier BOOLEAN DEFAULT 0,
+                daily_limit INTEGER,
+                limit_tokens INTEGER,
+                balance REAL,
+                is_free BOOLEAN DEFAULT 0,
                 cached_at INTEGER NOT NULL,
                 PRIMARY KEY (provider, model_id)
             )
@@ -72,6 +110,15 @@ async def init_db() -> None:
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_model_cache_provider 
             ON model_cache(provider, cached_at DESC)
+        """)
+
+        # Create model_groups table for grouping free/paid versions
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS model_groups (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT
+            )
         """)
 
         await db.commit()
@@ -227,8 +274,8 @@ async def cache_models(provider: str, models: List[dict]) -> None:
             import json
             pricing_json = json.dumps(model.get('pricing')) if model.get('pricing') else None
             await db.execute("""
-                INSERT INTO model_cache (provider, model_id, model_name, context_length, pricing, free_tier, cached_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO model_cache (provider, model_id, model_name, context_length, pricing, free_tier, daily_limit, limit_tokens, balance, is_free, cached_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 provider,
                 model.get('id'),
@@ -236,6 +283,10 @@ async def cache_models(provider: str, models: List[dict]) -> None:
                 model.get('context_length', 4096),
                 pricing_json,
                 model.get('free_tier', False),
+                model.get('daily_limit'),
+                model.get('limit_tokens'),
+                model.get('balance'),
+                model.get('is_free', False),
                 now
             ))
         
@@ -251,7 +302,7 @@ async def get_cached_models(provider: str, ttl_hours: int = 24) -> Optional[List
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute("""
-            SELECT model_id, model_name, context_length, pricing, free_tier, cached_at
+            SELECT model_id, model_name, context_length, pricing, free_tier, daily_limit, limit_tokens, balance, is_free, cached_at
             FROM model_cache
             WHERE provider = ? AND cached_at > ?
             ORDER BY model_name
@@ -271,6 +322,10 @@ async def get_cached_models(provider: str, ttl_hours: int = 24) -> Optional[List
                 'context_length': row['context_length'],
                 'pricing': pricing,
                 'free_tier': bool(row['free_tier']),
+                'daily_limit': row['daily_limit'],
+                'limit_tokens': row['limit_tokens'],
+                'balance': row['balance'],
+                'is_free': bool(row['is_free']),
             })
         
         logger.debug(f"Retrieved {len(result)} cached models for provider {provider}")
