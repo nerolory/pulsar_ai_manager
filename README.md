@@ -1,30 +1,30 @@
 # PulsarAI Chat
 
-LLM чат-бот с поддержкой множества провайдеров (VseLLM, OpenRouter, Mock).
+LLM chatbot with support for multiple providers (VseLLM, OpenRouter, Mock).
 
-## Установка
+## Installation
 
-### Через инсталлер (Windows)
+### Via Installer (Windows)
 
-1. Скачайте установочный файл `pulsar-chat-setup.exe` из релизов
-2. Запустите установщик и следуйте инструкциям
-3. После установки запустите приложение через ярлык на рабочем столе
+1. Download the installer file `pulsar-chat-setup.exe` from releases
+2. Run the installer and follow the instructions
+3. After installation, launch the application via the desktop shortcut
 
-### Через Docker
+### Via Docker
 
 ```bash
-# Клонирование репозитория
+# Clone repository
 git clone <repo-url>
 cd llm_chat
 
-# Запуск в режиме разработки
+# Run in development mode
 docker-compose --profile dev up -d
 
-# Запуск в режиме продакшн
+# Run in production mode
 docker-compose --profile prod up -d
 ```
 
-### Локальная разработка
+### Local Development
 
 **Backend (Python 3.13+):**
 ```bash
@@ -42,32 +42,32 @@ npm install
 npm run dev
 ```
 
-## Сборка
+## Building
 
-### Использование build.ps1
+### Using build.ps1
 
-Скрипт `build.ps1` предназначен для удобной сборки проекта:
+The `build.ps1` script is designed for convenient project building:
 
 ```powershell
-# Полная сборка (backend + frontend)
+# Full build (backend + frontend)
 .\build.ps1
 
-# Только backend
+# Only backend
 .\build.ps1 -Target backend
 
-# Только frontend
+# Only frontend
 .\build.ps1 -Target frontend
 
-# Сборка Electron приложения
+# Build Electron application
 .\build.ps1 -Target electron
 ```
 
-**Требования:**
+**Requirements:**
 - Windows PowerShell 5.1+
-- Python 3.13+ (для backend)
-- Node.js 18+ (для frontend)
+- Python 3.13+ (for backend)
+- Node.js 18+ (for frontend)
 
-### Ручная сборка
+### Manual Build
 
 **Backend:**
 ```bash
@@ -81,96 +81,96 @@ cd frontend
 npm run build
 ```
 
-## Настройка
+## Configuration
 
-### Настройка провайдера
+### Provider Configuration
 
-1. Откройте чат
-2. Нажмите кнопку "Настройки" (⚙)
-3. Перейдите в раздел "Провайдеры ИИ"
-4. Выберите провайдер и введите API ключ:
-   - **VseLLM**: введите API ключ VseLLM
-   - **OpenRouter**: введите API ключ OpenRouter
-   - **Mock**: не требует ключа (для тестирования)
+1. Open the chat
+2. Click the "Settings" button (⚙)
+3. Navigate to the "AI Providers" section
+4. Select a provider and enter the API key:
+   - **VseLLM**: enter VseLLM API key
+   - **OpenRouter**: enter OpenRouter API key
+   - **Mock**: no key required (for testing)
 
-### Настройка параметров чата
+### Chat Parameters
 
-В настройках можно изменить:
-- Модель чата
-- Температура (креативность ответов)
-- Максимальное количество токенов
-- Системный промпт
+In settings you can change:
+- Chat model
+- Temperature (response creativity)
+- Maximum tokens
+- System prompt
 
-### Настройки хранилища
+### Storage Settings
 
-Чаты сохраняются локально в файле `chats.json` в папке приложения.
+Chats are saved locally in the `chats.json` file in the application folder.
 
-## Интеграция на сайт
+## Website Integration
 
-**В разработке**
+**In Development**
 
-В будущем будет доступна интеграция через:
-- Встраиваемый виджет
-- API для встраивания в существующие проекты
-- Плагины для популярных CMS
+Integration will be available in the future via:
+- Embeddable widget
+- API for embedding into existing projects
+- Plugins for popular CMS
 
-## Разработка
+## Development
 
-### Структура проекта
+### Project Structure
 
 ```
 llm_chat/
 ├── backend/          # FastAPI backend
 │   ├── app/
-│   │   ├── providers/   # Адаптеры LLM провайдеров
+│   │   ├── providers/   # LLM provider adapters
 │   │   ├── routes/      # API endpoints
-│   │   └── storage.py   # Хранилище чатов
+│   │   └── storage.py   # Chat storage
 │   └── requirements.txt
 ├── frontend/         # Vue 3 + Vite frontend
 │   ├── src/
-│   │   ├── components/  # Vue компоненты
+│   │   ├── components/  # Vue components
 │   │   ├── stores/      # Pinia stores
-│   │   └── themes/      # Темы оформления
+│   │   └── themes/      # UI themes
 │   └── package.json
 └── docker-compose.yml
 ```
 
-### Запуск тестов
+### Running Tests
 
 ```bash
-# Frontend тесты
+# Frontend tests
 cd frontend
 npm test
 
-# Backend тесты
+# Backend tests
 cd backend
 pytest
 ```
 
-## Перезапуск контейнеров
+## Restarting Containers
 
-Для перезапуска всех контейнеров используйте:
+To restart all containers use:
 
 ```bash
 docker-compose restart
 ```
 
-**Важно:** Не используйте `docker compose --profile dev restart frontend-dev` — она не перезапускает сервер корректно.
+**Important:** Do not use `docker compose --profile dev restart frontend-dev` — it does not restart the server correctly.
 
-## Особенности Windows
+## Windows Specifics
 
-Если у вас настроен SOCKS прокси (например, `socks=127.0.0.1:10808`), перед запуском установите:
+If you have a SOCKS proxy configured (e.g., `socks=127.0.0.1:10808`), set this before running:
 
 ```powershell
 $env:no_proxy="*"
 ```
 
-## Темы
+## Themes
 
-Приложение поддерживает смену тем оформления. Темы находятся в папке `frontend/src/themes/`.
+The application supports theme switching. Themes are located in the `frontend/src/themes/` folder.
 
-Доступные темы:
-- Dark Space (по умолчанию)
+Available themes:
+- Dark Space (default)
 - Neutral Gray
 - Light Clean
 - Light Warm
@@ -178,85 +178,85 @@ $env:no_proxy="*"
 - Forest
 - Steampunk
 
-### Как добавить свою тему
+### How to Add Your Own Theme
 
-Для создания новой темы необходимо:
+To create a new theme:
 
-1. **Создать папку темы**
+1. **Create theme folder**
 
-   В папке `frontend/src/themes/` создайте новую папку с названием вашей темы, например `my-theme/`.
+   In `frontend/src/themes/` create a new folder with your theme name, e.g., `my-theme/`.
 
-2. **Добавить файлы темы**
+2. **Add theme files**
 
-   В папке темы создайте два файла:
-   - `index.scss` — стили темы
-   - `index.css` — скомпилированные стили (если используете препроцессор)
+   In the theme folder create two files:
+   - `index.scss` — theme styles
+   - `index.css` — compiled styles (if using a preprocessor)
 
-3. **Зарегистрировать тему в index.ts**
+3. **Register theme in index.ts**
 
-   Откройте файл `frontend/src/themes/index.ts` и добавьте новую тему в массив `THEMES`:
+   Open `frontend/src/themes/index.ts` and add the new theme to the `THEMES` array:
 
    ```typescript
    {
-     id: 'my-theme',              // Уникальный идентификатор темы
-     name: 'My Theme',            // Отображаемое название
-     description: 'Описание темы', // Краткое описание
-     dark: true,                  // true для тёмной темы, false для светлой
+     id: 'my-theme',              // Unique theme identifier
+     name: 'My Theme',            // Display name
+     description: 'Theme description', // Brief description
+     dark: true,                  // true for dark theme, false for light
      vars: {
-       accent:       '#6366F1',    // Основной акцентный цвет
-       accentL:      '#818CF8',   // Светлый акцентный цвет
-       accentDim:    'rgba(99,102,241,0.18)', // Затемнённый акцент
-       accentBorder: 'rgba(99,102,241,0.45)', // Граница акцента
-       bg:           '#0a0a0f',    // Основной фон
-       bgS:          'rgba(255,255,255,0.06)', // Фон поверхностей
-       bgG:          'rgba(255,255,255,0.08)', // Фон групп
-       bgGh:         'rgba(255,255,255,0.13)', // Фон при наведении
-       bgPanel:      '#13131f',    // Фон панелей
-       brd:          'rgba(255,255,255,0.13)', // Границы
-       brdA:         'rgba(99,102,241,0.55)', // Акцентные границы
-       t1:           '#F1F1F5',    // Основной текст
-       t2:           '#A9A9C0',    // Вторичный текст
-       t3:           '#6B6B85',    // Третичный текст
-       blur:         'blur(20px)',  // Эффект размытия
-       shadowPop:    '0 20px 60px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.07)', // Тени
-       bodyGradient: 'radial-gradient(...)', // Градиент фона (или 'none')
-       codeInlineColor: '#e2b96f', // Цвет инлайн-кода
-       hljsStyle:    'github-dark', // Стиль подсветки синтаксиса
+       accent:       '#6366F1',    // Primary accent color
+       accentL:      '#818CF8',   // Light accent color
+       accentDim:    'rgba(99,102,241,0.18)', // Dimmed accent
+       accentBorder: 'rgba(99,102,241,0.45)', // Accent border
+       bg:           '#0a0a0f',    // Main background
+       bgS:          'rgba(255,255,255,0.06)', // Surface background
+       bgG:          'rgba(255,255,255,0.08)', // Group background
+       bgGh:         'rgba(255,255,255,0.13)', // Hover background
+       bgPanel:      '#13131f',    // Panel background
+       brd:          'rgba(255,255,255,0.13)', // Borders
+       brdA:         'rgba(99,102,241,0.55)', // Accent borders
+       t1:           '#F1F1F5',    // Primary text
+       t2:           '#A9A9C0',    // Secondary text
+       t3:           '#6B6B85',    // Tertiary text
+       blur:         'blur(20px)',  // Blur effect
+       shadowPop:    '0 20px 60px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.07)', // Shadows
+       bodyGradient: 'radial-gradient(...)', // Background gradient (or 'none')
+       codeInlineColor: '#e2b96f', // Inline code color
+       hljsStyle:    'github-dark', // Syntax highlighting style
      },
    },
    ```
 
-4. **Выбор стиля подсветки синтаксиса**
+4. **Choosing syntax highlighting style**
 
-   Доступные значения для `hljsStyle`:
-   - `github-dark` — тёмная тема GitHub
-   - `github` — светлая тема GitHub
-   - `base16-tomorrow` — тема Base16 Tomorrow
-   - `atom-one-light` — тема Atom One Light
+   Available values for `hljsStyle`:
+   - `github-dark` — GitHub dark theme
+   - `github` — GitHub light theme
+   - `base16-tomorrow` — Base16 Tomorrow theme
+   - `atom-one-light` — Atom One Light theme
 
-5. **Применение темы**
+5. **Applying the theme**
 
-   После добавления темы в `THEMES` массив, она автоматически станет доступной в настройках приложения в выпадающем списке тем.
+   After adding the theme to the `THEMES` array, it will automatically become available in the application settings dropdown.
 
-6. **Тестирование**
+6. **Testing**
 
-   Запустите приложение в режиме разработки:
+   Run the application in development mode:
    ```bash
    cd frontend
    npm run dev
    ```
 
-   Откройте настройки и выберите вашу тему из списка.
+   Open settings and select your theme from the list.
 
-### Пример создания темы
+### Theme Creation Example
 
-Полный пример создания тёмной темы с зелёным акцентом:
+Complete example of creating a dark theme with green accent:
 
 ```typescript
 {
   id: 'green-dark',
   name: 'Green Dark',
-  description: 'Тёмная тема с зелёным акцентом',
+  description: 'Dark theme with green accent',
   dark: true,
   vars: {
     accent:       '#10B981',
@@ -282,6 +282,6 @@ $env:no_proxy="*"
 }
 ```
 
-## Лицензия
+## License
 
 MIT License
