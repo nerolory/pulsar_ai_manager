@@ -54,6 +54,24 @@
           <span v-if="getTextContent(message.content)" v-html="renderContent(getTextContent(message.content))" />
         </div>
         <div v-if="message.role === 'assistant' && streaming && isLast(message.id) && message.content" class="cursor-blink" />
+        <div v-if="message.role === 'assistant' && !streaming && message.content && ttsSupported" class="msg-actions">
+          <button
+            class="msg-act-btn"
+            :class="{ active: speakingMessageId === message.id }"
+            :title="speakingMessageId === message.id ? 'Остановить' : 'Прочитать вслух'"
+            @click="toggleSpeak(message)"
+          >
+            <svg v-if="speakingMessageId !== message.id" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+            <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6" y="4" width="4" height="16"/>
+              <rect x="14" y="4" width="4" height="16"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -65,6 +83,7 @@ import type { ChatMessage, ContentPart, MessageContent } from '@/types'
 import { useMarkdown } from '@/composables/useMarkdown'
 import { switchModel } from '@/api/settings'
 import { useSettingsStore } from '@/stores/settings'
+import { useTTS } from '@/composables/useVoice'
 
 const props = defineProps<{
   messages: ChatMessage[]
@@ -78,6 +97,24 @@ const emit = defineEmits<{ openSettings: []; loadMore: [before: number] }>()
 const container = ref<HTMLElement | null>(null)
 const { render: renderContent } = useMarkdown()
 const settingsStore = useSettingsStore()
+const { speak, stop: stopTTS, isSpeaking, isSupported: ttsSupported } = useTTS()
+const speakingMessageId = ref<string | null>(null)
+
+function toggleSpeak(message: ChatMessage) {
+  const text = getTextContent(message.content)
+  if (!text) return
+  if (speakingMessageId.value === message.id) {
+    stopTTS()
+    speakingMessageId.value = null
+  } else {
+    stopTTS()
+    speakingMessageId.value = message.id
+    speak(text)
+    const unsub = watch(isSpeaking, (val) => {
+      if (!val) { speakingMessageId.value = null; unsub() }
+    })
+  }
+}
 const isLoadingMore = ref(false)
 const hasMoreMessages = ref(true)
 const isProgrammaticScroll = ref(false)
@@ -312,6 +349,24 @@ function handleMsgsClick(e: MouseEvent) {
   border-radius: 8px; border: 1px solid var(--brd);
   display: block; object-fit: contain;
 }
+
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.mc:hover .msg-actions { opacity: 1; }
+.msg-act-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 6px;
+  background: none; border: 1px solid transparent;
+  color: var(--t3); cursor: pointer; transition: all .14s;
+}
+.msg-act-btn:hover { color: var(--t1); border-color: var(--brd); background: var(--bg-s); }
+.msg-act-btn.active { color: var(--accent-l); border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.1); }
 
 .cursor-blink {
   display: inline-block; width: 2px; height: 1em;

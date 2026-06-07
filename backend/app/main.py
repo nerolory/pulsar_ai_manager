@@ -17,6 +17,7 @@ from app.routes.settings import router as settings_router
 from app.routes.chats import router as chats_router
 from app.routes.uploads import router as uploads_router
 from app.routes.admin import router as admin_router
+from app.routes.voice import router as voice_router
 from app.state import set_provider
 from app.exceptions import (
     ProviderError,
@@ -168,6 +169,7 @@ app.include_router(settings_router, prefix="/api/v1")
 app.include_router(chats_router, prefix="/api/v1")
 app.include_router(uploads_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
+app.include_router(voice_router, prefix="/api/v1")
 
 
 @app.get("/")

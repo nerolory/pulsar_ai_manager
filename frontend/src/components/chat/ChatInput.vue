@@ -19,6 +19,23 @@
         @paste="onPaste"
       />
       <div class="inp-acts">
+        <button
+          v-if="voiceSupported"
+          class="ia-btn mic-btn"
+          :class="{ recording: voiceState === 'recording', processing: voiceState === 'processing' }"
+          :title="voiceState === 'recording' ? 'Остановить запись' : voiceState === 'processing' ? 'Обработка...' : 'Голосовой ввод'"
+          :disabled="voiceState === 'processing'"
+          @click="onVoiceToggle"
+        >
+          <svg v-if="voiceState === 'idle'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+          <span v-else-if="voiceState === 'recording'" class="mic-pulse">●</span>
+          <span v-else class="mic-spin">⟳</span>
+        </button>
         <button class="ia-btn" title="Прикрепить изображение" @click="openFilePicker">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B7355" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="#E8E8E8"></path>
@@ -57,6 +74,8 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import type { ContentPart } from '@/types'
+import { useVoice } from '@/composables/useVoice'
+import { useToast } from '@/composables/useToast'
 
 defineProps<{ streaming: boolean; tuneOpen: boolean }>()
 const emit = defineEmits<{
@@ -68,6 +87,21 @@ const emit = defineEmits<{
 const text = ref('')
 const ta = ref<HTMLTextAreaElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+
+const { state: voiceState, isSupported: voiceSupported, toggle: toggleVoice } = useVoice()
+const { show: showToast } = useToast()
+
+function onVoiceToggle() {
+  toggleVoice(
+    (transcript) => {
+      text.value = text.value ? text.value + ' ' + transcript : transcript
+      nextTick(() => autoResize())
+    },
+    (err) => {
+      showToast('🎤', 'Голос', `Ошибка: ${err}`, 3000)
+    }
+  )
+}
 
 interface AttachedImage { dataUrl: string; file: File }
 const attachedImages = ref<AttachedImage[]>([])
@@ -236,6 +270,35 @@ function autoResize() {
 }
 .img-rm:hover { background: #ef4444; }
 .file-input-hidden { display: none; }
+
+.mic-btn.recording {
+  color: #ef4444;
+  border-color: rgba(239,68,68,0.5);
+  background: rgba(239,68,68,0.1);
+}
+.mic-btn.processing {
+  color: var(--accent-l);
+  border-color: rgba(99,102,241,0.5);
+  background: rgba(99,102,241,0.1);
+  cursor: wait;
+}
+.mic-pulse {
+  font-size: 14px;
+  animation: pulse 1s ease-in-out infinite;
+}
+.mic-spin {
+  font-size: 16px;
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 
 /* ── Responsive styles ──────────────────────────── */
 
