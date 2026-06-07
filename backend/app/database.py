@@ -3,13 +3,32 @@ from pathlib import Path
 from typing import List, Optional, AsyncIterator
 from loguru import logger
 from datetime import datetime
+import os
 
 from app.paths import DB_PATH
+from app.paths import BASE_DIR
+from app.paths import MIGRATIONS_DIR
 
 async def init_db() -> None:
     """Initialize database with tables and indexes"""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Create schema_version table for migration tracking
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER PRIMARY KEY,
+                applied_at INTEGER NOT NULL,
+                description TEXT
+            )
+        """)
+        
+        await db.commit()
+    
+    # Run pending migrations
+    await run_pending_migrations()
+    
+    # Create tables (if not already created by migrations)
     async with aiosqlite.connect(DB_PATH) as db:
         # Create chats table
         await db.execute("""
@@ -330,3 +349,84 @@ async def get_cached_models(provider: str, ttl_hours: int = 24) -> Optional[List
         
         logger.debug(f"Retrieved {len(result)} cached models for provider {provider}")
         return result
+
+
+async def get_current_schema_version() -> int:
+    """Get current schema version from database"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT MAX(version) FROM schema_version")
+        row = await cursor.fetchone()
+        return row[0] if row and row[0] else 0
+
+
+async def run_migration(version: int, description: str, sql: str) -> None:
+    """Run a single migration and record it in schema_version"""
+    now = int(datetime.now().timestamp() * 1000)
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Execute migration SQL
+        for statement in sql.split(';'):
+            statement = statement.strip()
+            if statement:
+                await db.execute(statement)
+        
+        # Record migration
+        await db.execute(
+            "INSERT INTO schema_version (version, applied_at, description) VALUES (?, ?, ?)",
+            (version, now, description)
+        )
+        await db.commit()
+        logger.info(f"Migration {version} applied: {description}")
+
+
+async def run_pending_migrations() -> None:
+    """Run all pending migrations"""
+    current_version = await get_current_schema_version()
+    logger.info(f"Current schema version: {current_version}")
+    
+    # Get all migration files
+    if not MIGRATIONS_DIR.exists():
+        logger.warning(f"Migrations directory not found: {MIGRATIONS_DIR}")
+        return
+    
+    migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
+    
+    for migration_file in migration_files:
+        # Extract version number from filename (e.g., 001_initial_schema.sql -> 1)
+        try:
+            version_str = migration_file.stem.split('_')[0]
+            version = int(version_str)
+        except (ValueError, IndexError):
+            logger.warning(f"Invalid migration filename: {migration_file.name}")
+            continue
+        
+        # Skip if already applied
+        if version <= current_version:
+            continue
+        
+        # Read migration SQL
+        with open(migration_file, 'r', encoding='utf-8') as f:
+            sql = f.read()
+        
+        # Extract description from filename (e.g., 001_initial_schema.sql -> initial_schema)
+        description = migration_file.stem.split('_', 1)[1] if '_' in migration_file.stem else migration_file.stem
+        
+        # Run migration
+        try:
+            await run_migration(version, description, sql)
+        except Exception as e:
+            logger.error(f"Migration {version} failed: {e}")
+            raise
+
+
+async def upgrade_schema(from_version: int, to_version: int) -> None:
+    """Upgrade schema from one version to another"""
+    current_version = await get_current_schema_version()
+    
+    if current_version != from_version:
+        logger.warning(f"Current version {current_version} does not match expected from_version {from_version}")
+    
+    await run_pending_migrations()
+    
+    new_version = await get_current_schema_version()
+    if new_version != to_version:
+        logger.warning(f"Expected version {to_version} but got {new_version}")

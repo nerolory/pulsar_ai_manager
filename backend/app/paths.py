@@ -14,3 +14,5 @@ DATA_DIR   = _resolve_data_dir()
 DB_PATH    = DATA_DIR / 'chats.db'
 SETTINGS_FILE = DATA_DIR / 'settings.yaml'
 UPLOADS_DIR = DATA_DIR / 'uploads'
+BASE_DIR   = Path(__file__).parent.parent.parent
+MIGRATIONS_DIR = BASE_DIR / 'backend' / 'app' / 'migrations'

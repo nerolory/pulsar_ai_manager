@@ -11,11 +11,12 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 import sys
 
-from app.config import settings
+from app.configs import settings
 from app.routes.chat import router as chat_router
 from app.routes.settings import router as settings_router
 from app.routes.chats import router as chats_router
 from app.routes.uploads import router as uploads_router
+from app.routes.admin import router as admin_router
 from app.state import set_provider
 from app.exceptions import (
     ProviderError,
@@ -166,6 +167,7 @@ app.include_router(chat_router, prefix="/api/v1")
 app.include_router(settings_router, prefix="/api/v1")
 app.include_router(chats_router, prefix="/api/v1")
 app.include_router(uploads_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
 
 
 @app.get("/")
