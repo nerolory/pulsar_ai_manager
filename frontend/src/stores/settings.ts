@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { ProviderConfig, HealthStatus, ProviderName } from '@/types'
-import { configureProvider, getHealth, getProviderConfig } from '@/api/settings'
+import type { ProviderConfig, HealthStatus, ProviderName, ProviderCapabilities, ModelInfo } from '@/types'
+import type { ProviderMetadata } from '@/api/settings'
+import { configureProvider, getHealth, getProviderConfig, getCapabilities, getModels, refreshModels, getProviders } from '@/api/settings'
 
 export const useSettingsStore = defineStore('settings', () => {
   const activeProvider = ref<ProviderName | null>(null)
@@ -10,6 +11,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const health = ref<HealthStatus | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const capabilities = ref<ProviderCapabilities | null>(null)
+  const models = ref<ModelInfo[]>([])
+  const modelsSource = ref<'cache' | 'api'>('cache')
+  const providersMetadata = ref<Record<string, ProviderMetadata>>({})
 
   async function applyProvider(config: ProviderConfig) {
     loading.value = true
@@ -49,9 +54,61 @@ export const useSettingsStore = defineStore('settings', () => {
     await checkHealth()
   }
 
+  async function loadProvidersMetadata() {
+    try {
+      const data = await getProviders()
+      console.log('Providers metadata loaded:', data)
+      console.log('First provider data:', Object.values(data.providers)[0])
+      providersMetadata.value = data
+    } catch (error) {
+      console.error('Failed to load providers metadata:', error)
+    }
+  }
+
+  async function loadCapabilities() {
+    try {
+      capabilities.value = await getCapabilities()
+    } catch (error) {
+      console.error('Failed to load capabilities:', error)
+    }
+  }
+
+  async function loadModels(refresh = false) {
+    try {
+      const response = await getModels(refresh)
+      models.value = response.models
+      modelsSource.value = response.source
+    } catch (error) {
+      console.error('Failed to load models:', error)
+    }
+  }
+
+  async function refreshModelsList() {
+    await loadModels(true)
+  }
+
   const isConfigured = computed(() =>
     health.value === null || health.value.status !== 'no_provider',
   )
 
-  return { activeProvider, activeModel, savedProviders, health, loading, error, isConfigured, applyProvider, checkHealth, loadProviderConfig }
+  return { 
+    activeProvider, 
+    activeModel, 
+    savedProviders, 
+    health, 
+    loading, 
+    error, 
+    capabilities,
+    models,
+    modelsSource,
+    providersMetadata,
+    isConfigured, 
+    applyProvider, 
+    checkHealth, 
+    loadProviderConfig,
+    loadProvidersMetadata,
+    loadCapabilities,
+    loadModels,
+    refreshModelsList
+  }
 })

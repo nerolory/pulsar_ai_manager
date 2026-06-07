@@ -5,10 +5,12 @@ running prompt compliance tests, and checking provider health status.
 """
 
 from fastapi import APIRouter, HTTPException
-from app.schemas import SettingsPayload, HealthResponse, PromptTestResponse
+from app.schemas import SettingsPayload, HealthResponse, PromptTestResponse, ProviderCapabilities, ModelInfo
 from app.state import set_provider, get_provider
 from app.config import settings
 from app.storage import save_provider_config
+from app.database import cache_models, get_cached_models
+from app.providers.config import PROVIDERS, PROVIDER_METADATA, BASE_URL_TO_PROVIDER, OPENAI_COMPATIBLE_PROVIDERS, PROVIDER_MODEL_NAMES
 from loguru import logger
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -138,10 +140,9 @@ async def get_provider_config():
     from app.storage import load_provider_config, load_provider_config_for, _load_yaml
     config = load_provider_config()
     data = _load_yaml()
-    known_providers = ["openrouter", "vsellm", "openai", "mock"]
     all_providers = {
         provider_name: {"api_key": data[provider_name].get("api_key"), "model": data[provider_name].get("model")}
-        for provider_name in known_providers if provider_name in data
+        for provider_name in PROVIDERS if provider_name in data
     }
     if not config:
         return {"provider": None, "model": None, "api_key": None, "all_providers": all_providers}
@@ -150,6 +151,56 @@ async def get_provider_config():
         "model": config.get("model"),
         "api_key": config.get("api_key"),
         "all_providers": all_providers,
+    }
+
+
+@router.get("/providers")
+async def get_providers_list():
+    """Return list of all available providers with metadata.
+
+    Returns:
+        dict: Provider metadata for frontend.
+    """
+    # Add model_name to each provider's metadata
+    providers_with_model_name = {}
+    for provider_id, metadata in PROVIDER_METADATA.items():
+        providers_with_model_name[provider_id] = {
+            **metadata,
+            "model_name": PROVIDER_MODEL_NAMES.get(provider_id, "Модель"),
+        }
+    return {"providers": providers_with_model_name}
+
+
+@router.post("/detect-provider")
+async def detect_provider(base_url: str):
+    """Detect provider from base URL.
+
+    Args:
+        base_url: The base URL to check.
+
+    Returns:
+        dict: Detected provider ID and compatibility info.
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(base_url)
+    domain = parsed.netloc
+
+    # Check if domain matches known provider
+    for pattern, provider_id in BASE_URL_TO_PROVIDER.items():
+        if pattern in domain:
+            return {
+                "provider": provider_id,
+                "detected": True,
+                "compatible": True,
+            }
+
+    # Check if it's OpenAI-compatible (custom endpoint)
+    return {
+        "provider": None,
+        "detected": False,
+        "compatible": True,  # Assume OpenAI-compatible for custom endpoints
+        "message": "OpenAI-совместимый провайдер",
     }
 
 
@@ -214,3 +265,80 @@ async def health():
         model=provider.model,
         mock_mode=settings.mock_mode,
     )
+
+
+@router.get("/capabilities", response_model=ProviderCapabilities)
+async def get_capabilities():
+    """Get capabilities of the currently active LLM provider.
+
+    Returns:
+        ProviderCapabilities: Capabilities of the current provider.
+
+    Raises:
+        HTTPException: If no provider is configured.
+    """
+    provider = get_provider()
+    if provider is None:
+        raise HTTPException(status_code=503, detail="No provider configured")
+
+    return provider.get_capabilities()
+
+
+@router.get("/models")
+async def get_models(refresh: bool = False, provider: str = None):
+    """Get list of available models for the current or specified provider.
+
+    Args:
+        refresh: Force refresh from API instead of using cache.
+        provider: Optional provider ID to get models for (instead of active provider).
+
+    Returns:
+        dict: List of models with metadata.
+
+    Raises:
+        HTTPException: If no provider is configured or fetching fails.
+    """
+    if provider:
+        # For non-active providers, only return cached models
+        cached = await get_cached_models(provider)
+        if cached and not refresh:
+            return {"models": cached, "source": "cache"}
+        # If no cache or refresh forced, return empty list for non-active providers
+        return {"models": [], "source": "cache"}
+    else:
+        provider_instance = get_provider()
+        if provider_instance is None:
+            raise HTTPException(status_code=503, detail="No provider configured")
+        provider_name = type(provider_instance).__name__.replace("Provider", "").lower()
+
+    # Try cache first unless refresh is forced
+    if not refresh:
+        cached = await get_cached_models(provider_name)
+        if cached:
+            return {"models": cached, "source": "cache"}
+
+    # Fetch from provider
+    try:
+        models = await provider_instance.list_models()
+        models_dict = [model.model_dump() for model in models]
+
+        # Cache the results
+        await cache_models(provider_name, models_dict)
+
+        return {"models": models_dict, "source": "api"}
+    except Exception as e:
+        logger.error(f"Failed to fetch models: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch models: {str(e)}")
+
+
+@router.post("/refresh-models")
+async def refresh_models():
+    """Force refresh the model list from the provider API.
+
+    Returns:
+        dict: List of models with metadata.
+
+    Raises:
+        HTTPException: If no provider is configured or fetching fails.
+    """
+    return await get_models(refresh=True)

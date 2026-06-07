@@ -1,5 +1,14 @@
 import { api } from './apiService'
-import type { ProviderConfig, HealthStatus, ProviderName } from '@/types'
+import type { ProviderConfig, HealthStatus, ProviderName, ProviderCapabilities, ModelInfo } from '@/types'
+
+export interface ProviderMetadata {
+  name: string
+  desc: string
+  key_placeholder: string
+  default_model: string
+  base_url: string
+  model_name: string
+}
 
 export async function configureProvider(config: ProviderConfig): Promise<void> {
   await api.post('/settings/provider', {
@@ -18,6 +27,12 @@ export async function getProviderConfig(): Promise<{ provider: ProviderName | nu
   return await api.get('/settings/provider')
 }
 
+export async function getProviders(): Promise<Record<string, ProviderMetadata>> {
+  const response = await api.get('/settings/providers')
+  console.log('getProviders response:', response)
+  return response
+}
+
 export async function getHealth(): Promise<HealthStatus> {
   const data = await api.get<any>('/settings/health')
   if (!data) {
@@ -29,4 +44,22 @@ export async function getHealth(): Promise<HealthStatus> {
     model: data.model,
     mockMode: data.mock_mode,
   }
+}
+
+export async function getCapabilities(): Promise<ProviderCapabilities> {
+  return await api.get('/settings/capabilities')
+}
+
+export async function getModels(refresh = false, provider?: string): Promise<{ models: ModelInfo[]; source: string }> {
+  const params = new URLSearchParams({ refresh: refresh.toString() })
+  if (provider) params.append('provider', provider)
+  return await api.get(`/settings/models?${params.toString()}`)
+}
+
+export async function refreshModels(): Promise<{ models: ModelInfo[]; source: string }> {
+  return await api.post('/settings/refresh-models')
+}
+
+export async function detectProvider(baseUrl: string): Promise<{ provider: string | null; detected: boolean; compatible: boolean; message?: string }> {
+  return await api.post('/settings/detect-provider', { base_url: baseUrl })
 }

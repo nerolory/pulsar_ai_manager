@@ -28,33 +28,58 @@
         <!-- Providers -->
         <template v-if="activeSection === 'providers'">
           <div class="s-section">
-            <div class="s-section-title">🤖 Подключённые провайдеры ИИ</div>
+            <div class="s-section-title">🤖 Настройка провайдера ИИ</div>
             <div class="info-box">
-              Провайдер — это сервис, который предоставляет модель ИИ.
-              Выберите провайдера и введите API-ключ.
+              Выберите провайдер, модель и введите API-ключ для подключения.
             </div>
-            <div class="provider-list">
-              <div
-                v-for="provider in providers" :key="provider.id"
-                class="prov-row"
-                :class="{ connected: settingsStore.activeProvider === provider.id }"
-              >
-                <div class="prov-dot" :class="{ active: settingsStore.activeProvider === provider.id }" />
-                <div class="prov-info">
-                  <div class="prov-name">
-                    {{ provider.name }}
-                    <span class="prov-badge" :class="settingsStore.activeProvider === provider.id ? 'ok' : 'off'">
-                      {{ settingsStore.activeProvider === provider.id ? 'ПОДКЛЮЧЁН' : 'НЕ НАСТРОЕН' }}
-                    </span>
-                  </div>
-                  <div class="prov-desc">{{ provider.desc }}</div>
+
+            <!-- Current provider status -->
+            <div v-if="settingsStore.activeProvider" class="current-provider">
+              <div class="cp-info">
+                <div class="cp-label">Провайдер:</div>
+                <div class="cp-value">{{ providers?.find(p => p.id === settingsStore.activeProvider)?.name }}</div>
+                <div class="cp-balance">Баланс: {{ getProviderBalance(settingsStore.activeProvider) }}</div>
+              </div>
+              <div class="cp-divider" />
+              <div class="cp-info">
+                <div class="cp-label">Модель:</div>
+                <div class="cp-value">{{ settingsStore.activeModel }}</div>
+              </div>
+              <button class="btn btn-primary" @click="openSetup()">Изменить</button>
+            </div>
+            <div v-else class="current-provider">
+              <div class="cp-label">Провайдер не настроен</div>
+              <button class="btn btn-primary" @click="openSetup()">Настроить</button>
+            </div>
+
+            <!-- Capabilities display -->
+            <div v-if="settingsStore.capabilities && settingsStore.activeProvider" class="capabilities-section">
+              <div class="s-section-title">📋 Возможности провайдера</div>
+              <div class="capabilities-grid">
+                <div class="cap-item" :class="{ on: settingsStore.capabilities.supports_caching }">
+                  <span class="cap-icon">{{ settingsStore.capabilities.supports_caching ? '✅' : '❌' }}</span>
+                  <span class="cap-label">Кеширование промптов</span>
                 </div>
-                <button
-                  class="btn" :class="settingsStore.activeProvider === provider.id ? 'btn-secondary' : 'btn-primary'"
-                  @click="openSetup(provider.id)"
-                >
-                  {{ settingsStore.activeProvider === provider.id ? 'Изменить' : 'Настроить' }}
-                </button>
+                <div class="cap-item" :class="{ on: settingsStore.capabilities.supports_images }">
+                  <span class="cap-icon">{{ settingsStore.capabilities.supports_images ? '✅' : '❌' }}</span>
+                  <span class="cap-label">Изображения</span>
+                </div>
+                <div class="cap-item" :class="{ on: settingsStore.capabilities.supports_pdf }">
+                  <span class="cap-icon">{{ settingsStore.capabilities.supports_pdf ? '✅' : '❌' }}</span>
+                  <span class="cap-label">PDF файлы</span>
+                </div>
+                <div class="cap-item" :class="{ on: settingsStore.capabilities.free_tier_available }">
+                  <span class="cap-icon">{{ settingsStore.capabilities.free_tier_available ? '✅' : '❌' }}</span>
+                  <span class="cap-label">Бесплатный тариф</span>
+                </div>
+                <div class="cap-item">
+                  <span class="cap-icon">📊</span>
+                  <span class="cap-label">Контекст: {{ formatNumber(settingsStore.capabilities.max_context_tokens) }} токенов</span>
+                </div>
+                <div class="cap-item">
+                  <span class="cap-icon">💰</span>
+                  <span class="cap-label">Оплата: {{ settingsStore.capabilities.pricing_model === 'per_token' ? 'за токен' : 'за запрос' }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -135,33 +160,163 @@
       <div v-if="setupModal.open" class="overlay" @click.self="setupModal.open = false">
         <div class="modal">
           <div class="modal-header">
-            <div class="modal-title">Настройка {{ providers.find(provider => provider.id === setupModal.provider)?.name }}</div>
+            <div class="modal-title">Настройка провайдера</div>
             <button class="modal-close" @click="setupModal.open = false">✕</button>
           </div>
           <div class="modal-body">
-            <div class="field-group">
-              <label class="field-label">API-ключ</label>
-              <input
-                v-model="setupModal.apiKey"
-                class="field-input"
-                type="password"
-                :placeholder="providers.find(provider => provider.id === setupModal.provider)?.keyPlaceholder ?? 'sk-...'"
+            <!-- Mode toggle -->
+            <div class="mode-toggle">
+              <button
+                class="mode-btn"
+                :class="{ active: setupModal.mode === 'simple' }"
+                @click="setupModal.mode = 'simple'"
               >
-            </div>
-            <div class="field-group">
-              <label class="field-label">Модель (опционально)</label>
-              <input
-                v-model="setupModal.model"
-                class="field-input"
-                type="text"
-                :placeholder="providers.find(provider => provider.id === setupModal.provider)?.defaultModel ?? ''"
+                Простой режим
+              </button>
+              <button
+                class="mode-btn"
+                :class="{ active: setupModal.mode === 'manual' }"
+                @click="setupModal.mode = 'manual'"
               >
+                Ручной ввод
+              </button>
             </div>
+
+            <!-- Simple mode -->
+            <template v-if="setupModal.mode === 'simple'">
+              <!-- Provider selector -->
+              <div class="field-group">
+                <label class="field-label">Провайдер</label>
+                <select
+                  v-model="setupModal.provider"
+                  class="field-input"
+                  @change="onProviderChange"
+                >
+                  <option value="">Выберите провайдера</option>
+                  <option v-for="provider in providers" :key="provider.id" :value="provider.id">
+                    {{ provider.name }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Model selector -->
+              <div class="field-group">
+                <label class="field-label">Модель</label>
+                <div v-if="setupModal.providerModels.length > 1" class="model-select-wrapper">
+                  <select
+                    v-model="setupModal.model"
+                    class="field-input"
+                  >
+                    <option value="">Выберите модель</option>
+                    <option v-for="model in setupModal.providerModels" :key="model.id" :value="model.id">
+                      {{ model.name }} {{ model.free_tier ? '(бесплатно)' : '' }}
+                    </option>
+                  </select>
+                  <button
+                    class="refresh-models-btn"
+                    @click="refreshProviderModels"
+                    :disabled="setupModal.loadingModels"
+                    title="Обновить список моделей"
+                  >
+                    🔄
+                  </button>
+                </div>
+                <div v-else-if="setupModal.providerModels.length === 1" class="model-display">
+                  {{ setupModal.providerModels[0].name }} {{ setupModal.providerModels[0].free_tier ? '(бесплатно)' : '' }}
+                </div>
+                <div v-else class="model-display">
+                  {{ providers?.find(p => p.id === setupModal.provider)?.modelName || 'Модель по умолчанию' }}
+                </div>
+                <div v-if="setupModal.modelsSource && setupModal.providerModels.length > 0" class="models-source">
+                  Источник: {{ setupModal.modelsSource === 'cache' ? 'кешировано' : 'API' }}
+                </div>
+              </div>
+
+              <!-- API key -->
+              <div class="field-group">
+                <label class="field-label">API-ключ</label>
+                <div class="password-input-wrapper">
+                  <input
+                    v-model="setupModal.apiKey"
+                    class="field-input"
+                    :type="setupModal.showApiKey ? 'text' : 'password'"
+                    :disabled="!setupModal.model"
+                    :placeholder="providers?.find(provider => provider.id === setupModal.provider)?.keyPlaceholder ?? 'sk-...'"
+                  >
+                  <button
+                    class="toggle-password-btn"
+                    @click="setupModal.showApiKey = !setupModal.showApiKey"
+                    :disabled="!setupModal.model"
+                    type="button"
+                  >
+                    {{ setupModal.showApiKey ? '🙈' : '👁️' }}
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- Manual mode -->
+            <template v-else>
+              <!-- Base URL -->
+              <div class="field-group">
+                <label class="field-label">API адрес (Base URL)</label>
+                <input
+                  v-model="setupModal.baseUrl"
+                  class="field-input"
+                  type="text"
+                  placeholder="https://api.example.com/v1"
+                  @blur="onBaseUrlChange"
+                >
+                <div v-if="setupModal.providerDetection" class="provider-detection">
+                  <span v-if="setupModal.providerDetection.detected" class="detection-success">
+                    ✓ Обнаружен: {{ providers.value?.find(p => p.id === setupModal.providerDetection.provider)?.name }}
+                  </span>
+                  <span v-else-if="setupModal.providerDetection.compatible" class="detection-info">
+                    ℹ️ {{ setupModal.providerDetection.message }}
+                  </span>
+                  <span v-else class="detection-error">
+                    ⚠️ Несовместимый провайдер. Укажите OpenAI-совместимый провайдер.
+                  </span>
+                </div>
+              </div>
+
+              <!-- Model -->
+              <div class="field-group">
+                <label class="field-label">Модель</label>
+                <input
+                  v-model="setupModal.model"
+                  class="field-input"
+                  type="text"
+                  placeholder="gpt-4o-mini"
+                >
+              </div>
+
+              <!-- API key -->
+              <div class="field-group">
+                <label class="field-label">API-ключ</label>
+                <div class="password-input-wrapper">
+                  <input
+                    v-model="setupModal.apiKey"
+                    class="field-input"
+                    :type="setupModal.showApiKey ? 'text' : 'password'"
+                    placeholder="sk-..."
+                  >
+                  <button
+                    class="toggle-password-btn"
+                    @click="setupModal.showApiKey = !setupModal.showApiKey"
+                    type="button"
+                  >
+                    {{ setupModal.showApiKey ? '🙈' : '👁️' }}
+                  </button>
+                </div>
+              </div>
+            </template>
+
             <div v-if="setupModal.error" class="modal-error">{{ setupModal.error }}</div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-secondary" @click="setupModal.open = false">Отмена</button>
-            <button class="btn btn-primary" :disabled="settingsStore.loading" @click="saveProvider">
+            <button class="btn btn-primary" :disabled="settingsStore.loading || (setupModal.mode === 'simple' ? !setupModal.model : !setupModal.baseUrl || !setupModal.model)" @click="saveProvider">
               {{ settingsStore.loading ? 'Подключение...' : 'Сохранить' }}
             </button>
           </div>
@@ -177,8 +332,8 @@ import { useSettingsStore } from '@/stores/settings'
 import { useChatStore } from '@/stores/chat'
 import { useToast } from '@/composables/useToast'
 import { useTheme } from '@/composables/useTheme'
-import { testPrompt } from '@/api/settings'
-import type { ProviderName } from '@/types'
+import { testPrompt, getModels, refreshModels, detectProvider } from '@/api/settings'
+import type { ProviderName, ModelInfo } from '@/types'
 
 const emit = defineEmits<{ back: [] }>()
 
@@ -197,52 +352,161 @@ const sections = [
   { id: 'privacy',   icon: '🔒', label: 'Приватность' },
 ]
 
-const providers = [
-  { id: 'vsellm',     name: 'VseLLM',         desc: 'GPT-4o, Claude, Gemini и другие · api.vsellm.ru',          keyPlaceholder: 'sk-...',          defaultModel: 'openai/gpt-4o-mini' },
-  { id: 'openrouter', name: 'OpenRouter',      desc: 'Qwen3, LLaMA 3.3, Mistral и 200+ моделей · Бесплатные доступны', keyPlaceholder: 'sk-or-v1-...',   defaultModel: 'qwen/qwen3-235b-a22b:free' },
-  { id: 'openai',     name: 'OpenAI',          desc: 'GPT-4o, GPT-4.1, o1 — требуется API-ключ',                keyPlaceholder: 'sk-proj-...',     defaultModel: 'gpt-4o-mini' },
-  { id: 'anthropic',  name: 'Anthropic',       desc: 'Claude 3.5 Sonnet, Opus, Haiku — нативный API',           keyPlaceholder: 'sk-ant-...',     defaultModel: 'claude-3-5-sonnet-20241022' },
-  { id: 'groq',       name: 'Groq',            desc: 'Llama 3.1, Mixtral — сверхбыстрая инференция',            keyPlaceholder: 'gsk_...',         defaultModel: 'llama-3.1-70b-versatile' },
-  { id: 'cerebras',   name: 'Cerebras',        desc: 'Llama 3.1, GPT-OSS — высокая скорость',                    keyPlaceholder: '...',             defaultModel: 'llama3.1-70b' },
-  { id: 'qwen',       name: 'Qwen (Alibaba)',  desc: 'Qwen 3 Max, 3.6 Plus — 1M токенов бесплатно/90 дней',     keyPlaceholder: 'sk-...',          defaultModel: 'qwen-max' },
-  { id: 'mistral',    name: 'Mistral AI',      desc: 'Mistral Large, Mixtral — нативный API',                   keyPlaceholder: '...',             defaultModel: 'mistral-large-latest' },
-  { id: 'gemini',     name: 'Google Gemini',   desc: 'Gemini 2.0 Flash, Pro — нативный API',                    keyPlaceholder: '...',             defaultModel: 'gemini-2.0-flash-exp' },
-  { id: 'mock',       name: 'Mock (тест)',      desc: 'Тестовый провайдер без ключа — для разработки',           keyPlaceholder: '',                defaultModel: '' },
-]
+const providers = computed(() => {
+  const data = settingsStore.providersMetadata.providers || {}
+  const result = Object.entries(data).map(([id, meta]) => ({
+    id,
+    name: meta.name || id,
+    desc: meta.desc,
+    keyPlaceholder: meta.key_placeholder,
+    defaultModel: meta.default_model,
+    modelName: meta.model_name || meta.default_model,
+  }))
+  return result
+})
 
 const setupModal = reactive({
   open: false,
-  provider: 'vsellm' as ProviderName,
+  mode: 'simple' as 'simple' | 'manual',
+  provider: '' as ProviderName,
   apiKey: '',
   model: '',
+  baseUrl: '',
   error: '',
+  providerModels: [] as ModelInfo[],
+  loadingModels: false,
+  modelsSource: 'cache' as 'cache' | 'api',
+  detectingProvider: false,
+  providerDetection: null as { provider: string | null; detected: boolean; compatible: boolean; message?: string } | null,
+  showApiKey: false,
 })
 
 
 onMounted(async () => {
+  await settingsStore.loadProvidersMetadata()
   await settingsStore.loadProviderConfig()
+  if (settingsStore.activeProvider) {
+    await settingsStore.loadCapabilities()
+    await settingsStore.loadModels()
+  }
 })
 
-function openSetup(id: string) {
-  setupModal.provider = id as ProviderName
-  const saved = settingsStore.savedProviders[id]
-  const providerDefault = providers.find(provider => provider.id === id)?.defaultModel ?? ''
-  setupModal.apiKey = saved?.api_key ?? ''
-  setupModal.model = saved?.model ?? providerDefault
+function openSetup() {
+  if (!providers.value || providers.value.length === 0) {
+    showToast('⚠️', 'PulsarAI', 'Список провайдеров загружается...', 3000)
+    return
+  }
+  setupModal.mode = 'simple'
+  setupModal.provider = settingsStore.activeProvider || ''
+  setupModal.apiKey = settingsStore.savedProviders[setupModal.provider]?.api_key ?? ''
+  setupModal.model = settingsStore.activeModel || ''
+  setupModal.baseUrl = ''
   setupModal.error = ''
+  setupModal.providerModels = []
+  setupModal.modelsSource = 'cache'
+  setupModal.providerDetection = null
   setupModal.open = true
+
+  if (setupModal.provider) {
+    onProviderChange()
+  }
+}
+
+async function onProviderChange() {
+  setupModal.providerModels = []
+  if (!setupModal.provider) return
+
+  // Update API key for the selected provider
+  setupModal.apiKey = settingsStore.savedProviders[setupModal.provider]?.api_key ?? ''
+
+  // Get saved model for this provider
+  const savedModel = settingsStore.savedProviders[setupModal.provider]?.model ?? ''
+
+  setupModal.loadingModels = true
+  try {
+    const response = await getModels(false, setupModal.provider)
+    setupModal.providerModels = response.models
+    setupModal.modelsSource = response.source
+
+    // Auto-select model based on available models
+    if (response.models.length === 1) {
+      setupModal.model = response.models[0].id
+    } else if (response.models.length === 0) {
+      // No models available - use saved model or default
+      setupModal.model = savedModel || providers.value?.find(p => p.id === setupModal.provider)?.defaultModel || ''
+    } else {
+      // Multiple models - use saved model if it exists in the list
+      const modelExists = response.models.find(m => m.id === savedModel)
+      if (modelExists) {
+        setupModal.model = savedModel
+      } else {
+        setupModal.model = ''
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load models:', error)
+  } finally {
+    setupModal.loadingModels = false
+  }
+}
+
+async function refreshProviderModels() {
+  if (!setupModal.provider) return
+
+  setupModal.loadingModels = true
+  try {
+    const response = await getModels(true, setupModal.provider)
+    setupModal.providerModels = response.models
+    setupModal.modelsSource = response.source
+    showToast('🔄', 'PulsarAI', 'Список моделей обновлён', 3000)
+  } catch (error) {
+    showToast('❌', 'PulsarAI', 'Не удалось обновить список моделей', 3000)
+  } finally {
+    setupModal.loadingModels = false
+  }
+}
+
+function getProviderBalance(providerId: string): string {
+  // TODO: Implement balance checking when API is available
+  return 'не отслеживается'
+}
+
+async function onBaseUrlChange() {
+  if (!setupModal.baseUrl) {
+    setupModal.providerDetection = null
+    return
+  }
+
+  setupModal.detectingProvider = true
+  try {
+    const result = await detectProvider(setupModal.baseUrl)
+    setupModal.providerDetection = result
+
+    // If provider detected, auto-switch to simple mode
+    if (result.detected && result.provider) {
+      setupModal.provider = result.provider as ProviderName
+      setupModal.mode = 'simple'
+      await onProviderChange()
+    }
+  } catch (error) {
+    console.error('Failed to detect provider:', error)
+  } finally {
+    setupModal.detectingProvider = false
+  }
 }
 
 async function saveProvider() {
   setupModal.error = ''
   try {
     await settingsStore.applyProvider({
-      provider: setupModal.provider,
+      provider: setupModal.mode === 'manual' ? 'openai' as ProviderName : setupModal.provider,
       apiKey: setupModal.apiKey || undefined,
       model: setupModal.model || undefined,
+      baseUrl: setupModal.mode === 'manual' ? setupModal.baseUrl : undefined,
     })
     setupModal.open = false
-    showToast('✅', 'Провайдер подключён', providers.find(provider => provider.id === setupModal.provider)?.name ?? '')
+    showToast('✅', 'Провайдер подключён', providers.value?.find(provider => provider.id === setupModal.provider)?.name ?? 'Custom')
+    await settingsStore.loadCapabilities()
     runPromptTest()
   } catch (error) {
     setupModal.error = (error as Error).message
@@ -260,6 +524,21 @@ async function runPromptTest() {
     }
   } catch {
     showToast('❌', 'PulsarAI', 'Не удалось проверить поддержку промптов', 5000)
+  }
+}
+
+function formatNumber(num: number): string {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
+  return num.toString()
+}
+
+async function refreshModels() {
+  try {
+    await settingsStore.refreshModelsList()
+    showToast('🔄', 'PulsarAI', 'Список моделей обновлён', 3000)
+  } catch {
+    showToast('❌', 'PulsarAI', 'Не удалось обновить список моделей', 3000)
   }
 }
 </script>
@@ -313,33 +592,12 @@ async function runPromptTest() {
 }
 .coming-soon { font-size: 13px; color: var(--t3); }
 
-.provider-list { display: flex; flex-direction: column; gap: 6px; }
-.prov-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border-radius: var(--rs);
-  border: 1px solid var(--brd); background: var(--bg-s); transition: border-color .15s;
-}
-.prov-row.connected { border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.05); }
-.prov-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--t3); flex-shrink: 0; transition: all .2s;
-}
-.prov-dot.active { background: #34D399; box-shadow: 0 0 6px rgba(52,211,153,0.5); }
-.prov-info { flex: 1; }
-.prov-name { font-size: 13px; font-weight: 600; color: var(--t1); display: flex; align-items: center; gap: 6px; }
-.prov-badge {
-  font-size: 10px; padding: 1px 5px; border-radius: 3px;
-}
-.prov-badge.ok { background: rgba(52,211,153,0.1); color: #34D399; }
-.prov-badge.off { background: rgba(255,255,255,0.06); color: var(--t3); }
-.prov-desc { font-size: 11px; color: var(--t3); margin-top: 2px; }
-
 .btn {
   padding: 5px 12px; border-radius: var(--rs); font-size: 11px; font-weight: 500;
   cursor: pointer; border: none; transition: all .15s; white-space: nowrap;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary { background: var(--accent); color: var(--bg-inv); }
 .btn-primary:hover:not(:disabled) { background: var(--accent-l); }
 .btn-secondary { background: var(--bg-gh); color: var(--t2); border: 1px solid var(--brd); }
 .btn-secondary:hover { color: var(--t1); border-color: var(--brd-a); }
@@ -372,7 +630,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   font-size: 13px; cursor: pointer; padding: 4px 7px; border-radius: 6px; line-height: 1;
   transition: all .15s;
 }
-.modal-close:hover { color: #ef4444; border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.08); }
+.modal-close:hover { color: var(--error); border-color: var(--error-dim); background: var(--error-bg); }
 .modal-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .modal-footer {
   display: flex; justify-content: flex-end; gap: 8px;
@@ -380,8 +638,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 }
 .modal-error {
   padding: 8px 10px; border-radius: var(--rs);
-  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
-  color: #fca5a5; font-size: 12px;
+  background: var(--error-bg); border: 1px solid var(--error-dim);
+  color: var(--error); font-size: 12px;
 }
 .field-group { display: flex; flex-direction: column; gap: 5px; }
 .field-label { font-size: 11px; color: var(--t2); font-weight: 500; }
@@ -393,6 +651,199 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 }
 .field-input:focus { border-color: var(--brd-a); }
 .field-input::placeholder { color: var(--t3); }
+.field-input option {
+  color: var(--t1);
+  background: var(--bg-s);
+}
+
+.password-input-wrapper {
+  display: flex;
+  gap: 8px;
+}
+.password-input-wrapper .field-input {
+  flex: 1;
+}
+.toggle-password-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--rs);
+  background: var(--bg-s);
+  border: 1px solid var(--brd);
+  color: var(--t2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all .15s;
+}
+.toggle-password-btn:hover:not(:disabled) {
+  background: var(--bg-gh);
+  color: var(--t1);
+}
+.toggle-password-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 4px;
+  background: var(--bg-s);
+  border-radius: var(--rs);
+  border: 1px solid var(--brd);
+}
+.mode-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: calc(var(--rs) - 2px);
+  background: transparent;
+  color: var(--t2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+}
+.mode-btn.active {
+  background: var(--bg-gh);
+  color: var(--t1);
+  font-weight: 600;
+}
+.mode-btn:hover:not(.active) {
+  background: var(--bg-gh);
+}
+
+.provider-detection {
+  margin-top: 6px;
+  font-size: 11px;
+}
+.detection-success {
+  color: var(--success);
+}
+.detection-info {
+  color: var(--t2);
+}
+.detection-error {
+  color: var(--error);
+}
+
+.current-provider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--rs);
+  background: var(--bg-s);
+  border: 1px solid var(--brd);
+  margin-top: 16px;
+}
+.cp-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cp-label {
+  font-size: 11px;
+  color: var(--t3);
+  font-weight: 500;
+}
+.cp-value {
+  font-size: 11px;
+  color: var(--t1);
+  font-weight: 600;
+}
+.cp-balance {
+  font-size: 11px;
+  color: var(--t2);
+  font-weight: 400;
+}
+.cp-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--brd);
+}
+
+.model-select-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.model-select-wrapper select {
+  flex: 1;
+}
+.model-display {
+  padding: 8px 10px;
+  background: var(--bg-s);
+  border: 1px solid var(--brd);
+  border-radius: var(--rs);
+  color: var(--t1);
+  font-size: 13px;
+}
+.refresh-models-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--rs);
+  background: var(--bg-s);
+  border: 1px solid var(--brd);
+  color: var(--t2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all .15s;
+}
+.refresh-models-btn:hover:not(:disabled) {
+  color: var(--t1);
+  border-color: var(--brd-a);
+  background: var(--bg-gh);
+}
+.refresh-models-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.models-source {
+  font-size: 10px;
+  color: var(--t3);
+  margin-top: 2px;
+}
+
+.capabilities-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--brd);
+}
+.capabilities-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+.cap-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--rs);
+  background: var(--bg-s);
+  border: 1px solid var(--brd);
+  font-size: 11px;
+  color: var(--t2);
+}
+.cap-item.on {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+.cap-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.cap-label {
+  flex: 1;
+}
 
 
 .modal-enter-active, .modal-leave-active { transition: opacity .2s ease; }
@@ -474,7 +925,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   height: 18px;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--bg-inv);
   font-size: 10px;
   font-weight: 700;
   display: flex;
@@ -494,7 +945,6 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 @media (max-width: 1024px) {
   .settings-nav { width: 180px; padding: 12px 8px; }
   .settings-content { padding: 14px; }
-  .prov-row { padding: 10px 12px; }
   .theme-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
 }
 
@@ -524,14 +974,6 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   .settings-content {
     padding: 16px;
   }
-
-  .prov-row {
-    flex-direction: column;
-    gap: 10px;
-    align-items: flex-start;
-  }
-
-  .prov-info { width: 100%; }
 
   .theme-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -572,7 +1014,6 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 /* Touch devices */
 @media (hover: none) and (pointer: coarse) {
   .sn-item { min-height: 44px; }
-  .prov-row { min-height: 44px; }
   .btn { min-height: 44px; }
 }
 </style>
