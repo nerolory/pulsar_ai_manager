@@ -1,13 +1,28 @@
+import os
 import sys
 from pathlib import Path
 
 
 def _resolve_data_dir() -> Path:
+    """Resolve persistent data directory for DB, settings and uploads.
+
+    Priority:
+    1. PyInstaller frozen executable — ./data next to the binary
+    2. Docker — /app/data (volume mount)
+    3. Local dev — backend/data/
+    """
     if getattr(sys, "frozen", False):
-        # PyInstaller: data directory sits next to the compiled executable
         return Path(sys.executable).parent / "data"
-    # Docker / local dev
-    return Path("/app/data")
+
+    if Path("/app/data").exists() or Path("/.dockerenv").exists():
+        return Path("/app/data")
+
+    env_override = os.getenv("PULSAR_DATA_DIR")
+    if env_override:
+        return Path(env_override)
+
+    # backend/app/paths.py → backend/data
+    return Path(__file__).resolve().parent.parent / "data"
 
 
 DATA_DIR = _resolve_data_dir()

@@ -12,14 +12,15 @@ class GroqProvider(OpenAICompatibleProvider):
     Inherits unified error handling from OpenAICompatibleProvider.
     """
 
-    def __init__(self, api_key: str, model: str = "llama-3.1-70b-versatile", **kwargs):
+    def __init__(self, api_key: str, model: str = "llama-3.1-70b-versatile", base_url: str | None = None, **kwargs):
         """Initialize Groq provider.
 
         Args:
             api_key: Groq API key (gsk_...).
             model: Model identifier.
+            base_url: Optional custom API base URL.
         """
-        super().__init__(api_key, model, "https://api.groq.com/openai/v1")
+        super().__init__(api_key, model, base_url or "https://api.groq.com/openai/v1")
 
     def get_capabilities(self) -> ProviderCapabilities:
         """Return Groq-specific capabilities."""

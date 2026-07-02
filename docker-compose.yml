@@ -20,7 +20,7 @@ services:
               count: all
               capabilities: [gpu]
     ports:
-      - "8000:8000"
+      - "18080:8000"
     volumes:
       - ./backend:/app       # вся папка backend ↔ /app в контейнере
       - backend_data:/app/data  # персистентное хранилище настроек
@@ -31,7 +31,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     ports:
-      - "5173:5173"
+      - "15173:5173"
     volumes:
       - ./frontend:/app                    # вся папка frontend ↔ /app
       - frontend_node_modules:/app/node_modules  # node_modules живёт только в контейнере
@@ -46,7 +46,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - "18081:80"
     depends_on:
       - backend
     profiles: [prod]

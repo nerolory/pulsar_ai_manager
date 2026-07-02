@@ -1,5 +1,6 @@
 """Chat repository — CRUD operations for chats table."""
 
+from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
 
@@ -79,6 +80,8 @@ class ChatRepository:
             True if the chat was found and deleted.
         """
         async with aiosqlite.connect(db_path) as db:
+            await db.execute("PRAGMA foreign_keys = ON")
+            await db.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
             cursor = await db.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
             await db.commit()
             deleted = cursor.rowcount > 0

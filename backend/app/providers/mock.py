@@ -8,9 +8,8 @@ from app.providers.factory import ProviderFactory
 from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 
 MOCK_RESPONSE = (
-    "Это тестовый ответ от **MockProvider**. "
-    "Бекенд работает корректно. "
-    "Подключите реального провайдера в настройках."
+    "This is a test response from **MockProvider**. "
+    "Backend works correctly. Connect a real provider in settings."
 )
 
 

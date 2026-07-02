@@ -3,16 +3,16 @@
     <!-- Topbar -->
     <div class="topbar">
       <div class="tb-info">
-        <div class="tb-title">Настройки</div>
-        <div class="tb-sub">Управление приложением и провайдерами</div>
+        <div class="tb-title">{{ t('settings.title') }}</div>
+        <div class="tb-sub">{{ t('settings.subtitle') }}</div>
       </div>
-      <button class="tb-btn" title="Закрыть" @click="emit('back')">✕</button>
+      <button class="tb-btn" :title="t('settings.close')" @click="emit('back')">✕</button>
     </div>
 
     <div class="settings-body">
       <!-- Nav -->
       <nav class="settings-nav">
-        <div class="sb-label">Разделы</div>
+        <div class="sb-label">{{ t('settings.sections_label') }}</div>
         <div
           v-for="section in sections" :key="section.id"
           class="sn-item" :class="{ on: activeSection === section.id }"
@@ -23,79 +23,79 @@
       </nav>
 
       <!-- Content -->
-      <div class="settings-content">
+      <div class="settings-content" @contextmenu="onSettingsContextMenu">
 
         <!-- Providers -->
         <template v-if="activeSection === 'providers'">
           <div class="s-section">
-            <div class="s-section-title">🤖 Настройка провайдера ИИ</div>
+            <div class="s-section-title">🤖 {{ t('settings.provider.title') }}</div>
             <div class="info-box">
-              Выберите провайдер, модель и введите API-ключ для подключения.
+              {{ t('settings.provider.description') }}
             </div>
 
             <!-- Current provider status -->
             <div v-if="settingsStore.activeProvider" class="current-provider">
               <div class="cp-info">
-                <div class="cp-label">Провайдер:</div>
+                <div class="cp-label">{{ t('settings.provider.label') }}</div>
                 <div class="cp-value">{{ providers?.find(p => p.id === settingsStore.activeProvider)?.name }}</div>
-                <div class="cp-balance" v-if="settingsStore.activeProvider !== 'local_llm'">Баланс: {{ getProviderBalance(settingsStore.activeProvider) }}</div>
+                <div class="cp-balance" v-if="settingsStore.activeProvider !== 'local_llm'">{{ t('settings.provider.balance') }} {{ getProviderBalance(settingsStore.activeProvider) }}</div>
               </div>
               <div class="cp-divider" />
               <div class="cp-info">
-                <div class="cp-label">Модель:</div>
+                <div class="cp-label">{{ t('settings.provider.model_label') }}</div>
                 <div class="cp-value">{{ settingsStore.activeModel }}</div>
               </div>
               <!-- Local LLM specific UI -->
               <div v-if="settingsStore.activeProvider === 'local_llm'" class="local-llm-status">
-                <div v-if="localLLMStatus.loading" class="status-message">Проверка системы...</div>
+                <div v-if="localLLMStatus.loading" class="status-message">{{ t('settings.local_llm.checking') }}</div>
                 <div v-else-if="!localLLMStatus.canRun" class="status-message error">
                   ⚠️ {{ localLLMStatus.message }}
                 </div>
                 <div v-else-if="localLLMStatus.downloadedCount === 0" class="status-message warning">
-                  ⚠️ Нет установленных моделей
+                  ⚠️ {{ t('settings.local_llm.no_models') }}
                 </div>
-                <button 
+                <button
                   v-if="localLLMStatus.canRun && localLLMStatus.downloadedCount === 0"
-                  class="btn btn-primary" 
+                  class="btn btn-primary"
                   @click="activeSection = 'local'"
                 >
-                  Установить модель
+                  {{ t('settings.local_llm.install_model') }}
                 </button>
               </div>
-              <button class="btn btn-primary" @click="openSetup()">Изменить</button>
+              <button class="btn btn-primary" @click="openSetup()">{{ t('settings.provider.change') }}</button>
             </div>
             <div v-else class="current-provider">
-              <div class="cp-label">Провайдер не настроен</div>
-              <button class="btn btn-primary" @click="openSetup()">Настроить</button>
+              <div class="cp-label">{{ t('settings.provider.not_configured') }}</div>
+              <button class="btn btn-primary" @click="openSetup()">{{ t('settings.provider.configure') }}</button>
             </div>
 
             <!-- Capabilities display -->
             <div v-if="settingsStore.capabilities && settingsStore.activeProvider" class="capabilities-section">
-              <div class="s-section-title">📋 Возможности провайдера</div>
+              <div class="s-section-title">📋 {{ t('settings.provider.capabilities') }}</div>
               <div class="capabilities-grid">
                 <div class="cap-item" :class="{ on: settingsStore.capabilities.supports_caching }">
                   <span class="cap-icon">{{ settingsStore.capabilities.supports_caching ? '✅' : '❌' }}</span>
-                  <span class="cap-label">Кеширование промптов</span>
+                  <span class="cap-label">{{ t('settings.provider.caching') }}</span>
                 </div>
                 <div class="cap-item" :class="{ on: settingsStore.capabilities.supports_images }">
                   <span class="cap-icon">{{ settingsStore.capabilities.supports_images ? '✅' : '❌' }}</span>
-                  <span class="cap-label">Изображения</span>
+                  <span class="cap-label">{{ t('settings.provider.images') }}</span>
                 </div>
                 <div class="cap-item" :class="{ on: settingsStore.capabilities.supports_pdf }">
                   <span class="cap-icon">{{ settingsStore.capabilities.supports_pdf ? '✅' : '❌' }}</span>
-                  <span class="cap-label">PDF файлы</span>
+                  <span class="cap-label">{{ t('settings.provider.pdf') }}</span>
                 </div>
                 <div class="cap-item" :class="{ on: settingsStore.capabilities.free_tier_available }">
                   <span class="cap-icon">{{ settingsStore.capabilities.free_tier_available ? '✅' : '❌' }}</span>
-                  <span class="cap-label">Бесплатный тариф</span>
+                  <span class="cap-label">{{ t('settings.provider.free_tier') }}</span>
                 </div>
                 <div class="cap-item">
                   <span class="cap-icon">📊</span>
-                  <span class="cap-label">Контекст: {{ formatNumber(settingsStore.capabilities.max_context_tokens) }} токенов</span>
+                  <span class="cap-label">{{ t('settings.provider.context') }}: {{ formatNumber(settingsStore.capabilities.max_context_tokens) }} {{ t('settings.provider.tokens') }}</span>
                 </div>
                 <div class="cap-item">
                   <span class="cap-icon">💰</span>
-                  <span class="cap-label">Оплата: {{ settingsStore.capabilities.pricing_model === 'per_token' ? 'за токен' : 'за запрос' }}</span>
+                  <span class="cap-label">{{ t('settings.provider.pricing') }}: {{ settingsStore.capabilities.pricing_model === 'per_token' ? t('settings.provider.per_token') : t('settings.provider.per_request') }}</span>
                 </div>
               </div>
             </div>
@@ -105,17 +105,17 @@
         <!-- Chat defaults -->
         <template v-else-if="activeSection === 'chat'">
           <div class="s-section">
-            <div class="s-section-title">💬 Параметры чата по умолчанию</div>
+            <div class="s-section-title">💬 {{ t('settings.chat.title') }}</div>
             <div class="sl-g">
               <div class="sl-row">
-                <div class="sl-label">Креативность ответов<span class="sl-hint">0 = строго · 2 = творчески</span></div>
+                <div class="sl-label">{{ t('settings.chat.creativity') }}<span class="sl-hint">{{ t('settings.chat.creativity_hint') }}</span></div>
                 <span class="sl-val">{{ chatStore.params.temperature.toFixed(1) }}</span>
               </div>
               <input v-model.number="chatStore.params.temperature" type="range" min="0" max="2" step="0.1">
             </div>
             <div class="sl-g">
               <div class="sl-row">
-                <div class="sl-label">Максимальная длина ответа<span class="sl-hint">В токенах</span></div>
+                <div class="sl-label">{{ t('settings.chat.max_length') }}<span class="sl-hint">{{ t('settings.chat.max_length_hint') }}</span></div>
                 <span class="sl-val">{{ chatStore.params.maxTokens }}</span>
               </div>
               <input v-model.number="chatStore.params.maxTokens" type="range" min="256" max="8192" step="256">
@@ -131,7 +131,7 @@
         <!-- Appearance -->
         <template v-else-if="activeSection === 'appearance'">
           <div class="s-section">
-            <div class="s-section-title">🎨 Тема оформления</div>
+            <div class="s-section-title">🎨 {{ t('settings.appearance.title') }}</div>
             <div class="theme-grid">
               <div
                 v-for="theme in themes"
@@ -157,8 +157,8 @@
                   </div>
                 </div>
                 <div class="theme-meta">
-                  <div class="theme-name">{{ theme.name }}</div>
-                  <div class="theme-desc">{{ theme.description }}</div>
+                  <div class="theme-name">{{ themeLabel(theme.id, theme.name) }}</div>
+                  <div class="theme-desc">{{ themeDescription(theme.id, theme.description) }}</div>
                 </div>
                 <div v-if="currentTheme.id === theme.id" class="theme-check">✓</div>
               </div>
@@ -166,10 +166,28 @@
           </div>
         </template>
 
+        <!-- Language -->
+        <template v-else-if="activeSection === 'language'">
+          <div class="s-section">
+            <div class="s-section-title">🌐 {{ t('settings.language.title') }}</div>
+            <div class="field-group">
+              <select
+                v-model="currentLanguage"
+                class="field-input"
+                @change="setLanguage(currentLanguage)"
+              >
+                <option v-for="lang in availableLanguages" :key="lang.code" :value="lang.code">
+                  {{ lang.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </template>
+
         <template v-else>
           <div class="s-section">
             <div class="s-section-title">{{ activeSectionMeta?.icon }} {{ activeSectionMeta?.label }}</div>
-            <p class="coming-soon">Раздел в разработке</p>
+            <p class="coming-soon">{{ t('settings.coming_soon') }}</p>
           </div>
         </template>
       </div>
@@ -182,7 +200,7 @@
       <div v-if="setupModal.open" class="overlay" @click.self="setupModal.open = false">
         <div class="modal">
           <div class="modal-header">
-            <div class="modal-title">Настройка провайдера</div>
+            <div class="modal-title">{{ t('settings.modal.title') }}</div>
             <button class="modal-close" @click="setupModal.open = false">✕</button>
           </div>
           <div class="modal-body">
@@ -193,14 +211,14 @@
                 :class="{ active: setupModal.mode === 'simple' }"
                 @click="setupModal.mode = 'simple'"
               >
-                Простой режим
+                {{ t('settings.modal.simple_mode') }}
               </button>
               <button
                 class="mode-btn"
                 :class="{ active: setupModal.mode === 'manual' }"
                 @click="setupModal.mode = 'manual'"
               >
-                Ручной ввод
+                {{ t('settings.modal.manual_mode') }}
               </button>
             </div>
 
@@ -208,13 +226,13 @@
             <template v-if="setupModal.mode === 'simple'">
               <!-- Provider selector -->
               <div class="field-group">
-                <label class="field-label">Провайдер</label>
+                <label class="field-label">{{ t('settings.modal.provider_label') }}</label>
                 <select
                   v-model="setupModal.provider"
                   class="field-input"
                   @change="onProviderChange"
                 >
-                  <option value="">Выберите провайдера</option>
+                  <option value="">{{ t('settings.modal.select_provider') }}</option>
                   <option v-for="provider in providers" :key="provider.id" :value="provider.id">
                     {{ provider.name }}
                   </option>
@@ -223,7 +241,7 @@
 
               <!-- Model selector -->
               <div class="field-group">
-                <label class="field-label">Модель</label>
+                <label class="field-label">{{ t('settings.modal.model_label') }}</label>
                 <div v-if="setupModal.providerModels.length > 0" class="model-select-container">
                   <ModelSelect
                     :models="setupModal.providerModels"
@@ -234,22 +252,31 @@
                     class="refresh-models-btn"
                     @click="refreshProviderModels"
                     :disabled="setupModal.loadingModels"
-                    title="Обновить список моделей"
+                    :title="t('settings.modal.refresh_models')"
                   >
                     🔄
                   </button>
                 </div>
+                <div v-else-if="setupModal.provider === 'local_llm'" class="model-display warning">
+                  {{ t('settings.local_llm.no_models') }}
+                </div>
                 <div v-else class="model-display">
-                  {{ providers?.find(p => p.id === setupModal.provider)?.modelName || 'Модель по умолчанию' }}
+                  {{ providers?.find(p => p.id === setupModal.provider)?.modelName || t('settings.modal.default_model') }}
                 </div>
                 <div v-if="setupModal.modelsSource && setupModal.providerModels.length > 0" class="models-source">
-                  Источник: {{ setupModal.modelsSource === 'cache' ? 'кешировано' : 'API' }}
+                  {{ t('settings.modal.source') }}: {{
+                    setupModal.modelsSource === 'cache'
+                      ? t('settings.modal.cached')
+                      : setupModal.modelsSource === 'local'
+                        ? t('settings.modal.local')
+                        : t('settings.modal.api')
+                  }}
                 </div>
               </div>
 
               <!-- API key -->
-              <div class="field-group">
-                <label class="field-label">API-ключ</label>
+              <div v-if="setupModal.provider !== 'local_llm'" class="field-group">
+                <label class="field-label">{{ t('settings.modal.api_key_label') }}</label>
                 <div class="password-input-wrapper">
                   <input
                     v-model="setupModal.apiKey"
@@ -274,7 +301,7 @@
             <template v-else>
               <!-- Base URL -->
               <div class="field-group">
-                <label class="field-label">API адрес (Base URL)</label>
+                <label class="field-label">{{ t('settings.modal.base_url_label') }}</label>
                 <input
                   v-model="setupModal.baseUrl"
                   class="field-input"
@@ -284,20 +311,20 @@
                 >
                 <div v-if="setupModal.providerDetection" class="provider-detection">
                   <span v-if="setupModal.providerDetection.detected" class="detection-success">
-                    ✓ Обнаружен: {{ providers.find((p: any) => p.id === setupModal.providerDetection?.provider)?.name }}
+                    ✓ {{ t('settings.provider.detected') }}: {{ providers.find((p) => p.id === setupModal.providerDetection?.provider)?.name }}
                   </span>
                   <span v-else-if="setupModal.providerDetection.compatible" class="detection-info">
-                    ℹ️ {{ setupModal.providerDetection.message }}
+                    ℹ️ {{ setupModal.providerDetection.message_code ? parseErrorCode(setupModal.providerDetection.message_code) : setupModal.providerDetection.message }}
                   </span>
                   <span v-else class="detection-error">
-                    ⚠️ Несовместимый провайдер. Укажите OpenAI-совместимый провайдер.
+                    ⚠️ {{ t('settings.provider.incompatible') }}
                   </span>
                 </div>
               </div>
 
               <!-- Model -->
               <div class="field-group">
-                <label class="field-label">Модель</label>
+                <label class="field-label">{{ t('settings.modal.model_label') }}</label>
                 <input
                   v-model="setupModal.model"
                   class="field-input"
@@ -308,7 +335,7 @@
 
               <!-- API key -->
               <div class="field-group">
-                <label class="field-label">API-ключ</label>
+                <label class="field-label">{{ t('settings.modal.api_key_label') }}</label>
                 <div class="password-input-wrapper">
                   <input
                     v-model="setupModal.apiKey"
@@ -330,9 +357,9 @@
             <div v-if="setupModal.error" class="modal-error">{{ setupModal.error }}</div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary" @click="setupModal.open = false">Отмена</button>
+            <button class="btn btn-secondary" @click="setupModal.open = false">{{ t('settings.modal.cancel') }}</button>
             <button class="btn btn-primary" :disabled="settingsStore.loading || (setupModal.mode === 'simple' ? !setupModal.model : !setupModal.baseUrl || !setupModal.model)" @click="saveProvider">
-              {{ settingsStore.loading ? 'Подключение...' : 'Сохранить' }}
+              {{ settingsStore.loading ? t('settings.modal.connecting') : t('settings.modal.save') }}
             </button>
           </div>
         </div>
@@ -347,8 +374,11 @@ import { useSettingsStore } from '@/stores/settings'
 import { useChatStore } from '@/stores/chat'
 import { useToast } from '@/composables/useToast'
 import { useTheme } from '@/composables/useTheme'
+import { useI18n } from '@/composables/useI18n'
+import { useContextMenuProvider } from '@/composables/useContextMenu'
 import { testPrompt, getModels, refreshModels as apiRefreshModels, detectProvider, getBalance, getLocalLLMSettings, getLocalModels } from '@/api/settings'
 import type { ProviderName, ModelInfo } from '@/types'
+import { themeLocaleKey } from '@/utils/themeI18n'
 import ModelSelect from '@/components/ModelSelect.vue'
 import LocalModels from '@/components/LocalModels.vue'
 
@@ -358,6 +388,26 @@ const settingsStore = useSettingsStore()
 const chatStore = useChatStore()
 const { show: showToast } = useToast()
 const { themes, currentTheme, setTheme } = useTheme()
+const { currentLanguage, availableLanguages, setLanguage, t, parseErrorCode } = useI18n()
+const { handleContextMenuEvent } = useContextMenuProvider()
+
+function onSettingsContextMenu(event: MouseEvent) {
+  const el = (event.target as HTMLElement).closest('input, textarea') as HTMLElement | null
+  if (!el) return
+  handleContextMenuEvent(event, 'editable', el)
+}
+
+function themeLabel(themeId: string, fallback: string): string {
+  const key = `themes.${themeLocaleKey(themeId)}.name`
+  const value = t(key)
+  return value === key ? fallback : value
+}
+
+function themeDescription(themeId: string, fallback: string): string {
+  const key = `themes.${themeLocaleKey(themeId)}.description`
+  const value = t(key)
+  return value === key ? fallback : value
+}
 
 const activeSection = ref('providers')
 const activeSectionMeta = computed(() => sections.find(section => section.id === activeSection.value))
@@ -374,14 +424,24 @@ const formatNumber = (num: number): string => {
 }
 
 const sections = [
-  { id: 'providers', icon: '🤖', label: 'Провайдеры ИИ' },
-  { id: 'local',     icon: '💻', label: 'Локальные модели' },
-  { id: 'chat',      icon: '💬', label: 'Чат' },
-  { id: 'appearance',icon: '🎨', label: 'Внешний вид' },
-  { id: 'privacy',   icon: '🔒', label: 'Приватность' },
+  { id: 'providers', icon: '🤖', label: t('settings.sections.providers') },
+  { id: 'local',     icon: '💻', label: t('settings.sections.local') },
+  { id: 'chat',      icon: '💬', label: t('settings.sections.chat') },
+  { id: 'appearance',icon: '🎨', label: t('settings.sections.appearance') },
+  { id: 'language',  icon: '🌐', label: t('settings.sections.language') },
+  { id: 'privacy',   icon: '🔒', label: t('settings.sections.privacy') },
 ]
 
-const providers = computed(() => {
+interface ProviderListItem {
+  id: string
+  name: string
+  desc?: string
+  keyPlaceholder?: string
+  defaultModel?: string
+  modelName?: string
+}
+
+const providers = computed((): ProviderListItem[] => {
   const data = settingsStore.providersMetadata.providers || {}
   const result = Object.entries(data).map(([id, meta]) => ({
     id,
@@ -389,7 +449,7 @@ const providers = computed(() => {
     desc: meta.desc,
     keyPlaceholder: meta.key_placeholder,
     defaultModel: meta.default_model,
-    modelName: meta.model_name || meta.default_model,
+    modelName: meta.model_name_code ? parseErrorCode(meta.model_name_code) : (meta.model_name || meta.default_model),
   }))
   return result
 })
@@ -406,7 +466,7 @@ const setupModal = reactive({
   loadingModels: false,
   modelsSource: 'cache' as string,
   detectingProvider: false,
-  providerDetection: null as { provider: string | null; detected: boolean; compatible: boolean; message?: string } | null,
+  providerDetection: null as { provider: string | null; detected: boolean; compatible: boolean; message?: string; message_code?: string } | null,
   showApiKey: false,
 })
 
@@ -417,7 +477,7 @@ onMounted(async () => {
 
 function openSetup() {
   if (!providers.value || providers.value.length === 0) {
-    showToast('⚠️', 'PulsarAI', 'Список провайдеров загружается...', 3000)
+    showToast('⚠️', 'PulsarAI', t('settings.providers_loading'), 3000)
     return
   }
   setupModal.mode = 'simple'
@@ -436,6 +496,20 @@ function openSetup() {
   }
 }
 
+async function loadLocalLLMProviderModels(): Promise<ModelInfo[]> {
+  const data = await getLocalModels()
+  return data.downloaded.map((id) => {
+    const info = data.models[id]
+    return {
+      id,
+      name: info.name,
+      context_length: info.context_length,
+      free_tier: true,
+      is_free: true,
+    }
+  })
+}
+
 async function onProviderChange() {
   setupModal.providerModels = []
   if (!setupModal.provider) return
@@ -448,7 +522,9 @@ async function onProviderChange() {
 
   setupModal.loadingModels = true
   try {
-    const response = await getModels(false, setupModal.provider)
+    const response = setupModal.provider === 'local_llm'
+      ? { models: await loadLocalLLMProviderModels(), source: 'local' }
+      : await getModels(false, setupModal.provider)
     setupModal.providerModels = response.models
     setupModal.modelsSource = response.source
 
@@ -483,19 +559,21 @@ async function refreshProviderModels() {
 
   setupModal.loadingModels = true
   try {
-    const response = await getModels(true, setupModal.provider)
+    const response = setupModal.provider === 'local_llm'
+      ? { models: await loadLocalLLMProviderModels(), source: 'local' }
+      : await getModels(true, setupModal.provider)
     setupModal.providerModels = response.models
     setupModal.modelsSource = response.source
-    showToast('🔄', 'PulsarAI', 'Список моделей обновлён', 3000)
+    showToast('🔄', 'PulsarAI', t('settings.models_updated'), 3000)
   } catch (error) {
-    showToast('❌', 'PulsarAI', 'Не удалось обновить список моделей', 3000)
+    showToast('❌', 'PulsarAI', t('settings.models_update_failed'), 3000)
   } finally {
     setupModal.loadingModels = false
   }
 }
 
 function getProviderBalance(providerId: string): string {
-  if (!providerBalance.value) return 'не отслеживается'
+  if (!providerBalance.value) return parseErrorCode('balance_not_tracked')
   return providerBalance.value
 }
 
@@ -513,11 +591,11 @@ async function loadProviderBalance() {
         providerBalance.value = `${balance.balance} ${balance.currency}`
       }
     } else {
-      providerBalance.value = response.message || 'не отслеживается'
+      providerBalance.value = response.message_code ? parseErrorCode(response.message_code) : parseErrorCode('balance_not_tracked')
     }
   } catch (error) {
     console.error('Failed to load balance:', error)
-    providerBalance.value = 'не отслеживается'
+    providerBalance.value = parseErrorCode('balance_not_tracked')
   }
 }
 
@@ -528,14 +606,17 @@ async function loadLocalLLMStatus() {
   try {
     const settings = await getLocalLLMSettings()
     localLLMStatus.canRun = settings.can_run
-    localLLMStatus.message = settings.message
+    // Parse message code if present
+    localLLMStatus.message = settings.message_code
+      ? parseErrorCode(settings.message_code, settings.message_params ?? undefined)
+      : settings.message
     
     const models = await getLocalModels()
     localLLMStatus.downloadedCount = models.downloaded.length
   } catch (error) {
     console.error('Failed to load local LLM status:', error)
     localLLMStatus.canRun = false
-    localLLMStatus.message = 'Ошибка проверки системы'
+    localLLMStatus.message = parseErrorCode('system_check_error')
   } finally {
     localLLMStatus.loading = false
   }
@@ -575,7 +656,7 @@ async function saveProvider() {
       baseUrl: setupModal.mode === 'manual' ? setupModal.baseUrl : undefined,
     })
     setupModal.open = false
-    showToast('✅', 'Провайдер подключён', providers.value.find((p: any) => p.id === setupModal.provider)?.name ?? 'Custom')
+    showToast('✅', t('settings.provider_connected'), providers.value.find((p) => p.id === setupModal.provider)?.name ?? t('common.custom'))
     await settingsStore.loadCapabilities()
     await loadProviderBalance()
     runPromptTest()
@@ -585,25 +666,25 @@ async function saveProvider() {
 }
 
 async function runPromptTest() {
-  showToast('⏳', 'PulsarAI', 'Проверяю поддержку системных промптов...', 8000)
+  showToast('⏳', 'PulsarAI', t('settings.checking_prompts'), 8000)
   try {
     const response = await testPrompt()
     if (response.follows_instructions) {
-      showToast('✅', 'PulsarAI', 'Модель поддерживает системные промпты', 6000)
+      showToast('✅', 'PulsarAI', t('settings.prompts_supported'), 6000)
     } else {
-      showToast('⚠️', 'PulsarAI', `Модель может игнорировать скрипты. Ответ: "${response.model_answer}"`, 8000)
+      showToast('⚠️', 'PulsarAI', t('settings.prompts_may_ignore', { answer: response.model_answer }), 8000)
     }
   } catch {
-    showToast('❌', 'PulsarAI', 'Не удалось проверить поддержку промптов', 5000)
+    showToast('❌', 'PulsarAI', t('settings.prompts_check_failed'), 5000)
   }
 }
 
 async function refreshModels() {
   try {
     await settingsStore.refreshModelsList()
-    showToast('🔄', 'PulsarAI', 'Список моделей обновлён', 3000)
+    showToast('🔄', 'PulsarAI', t('settings.models_updated'), 3000)
   } catch {
-    showToast('❌', 'PulsarAI', 'Не удалось обновить список моделей', 3000)
+    showToast('❌', 'PulsarAI', t('settings.models_update_failed'), 3000)
   }
 }
 
@@ -633,7 +714,7 @@ watch(() => settingsStore.activeProvider, async (newProvider) => {
 .topbar {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 20px; border-bottom: 1px solid var(--brd);
-  background: rgba(255,255,255,0.02); flex-shrink: 0;
+  background: var(--topbar-bg); flex-shrink: 0;
 }
 .tb-info { flex: 1; }
 .tb-title { font-size: 14px; font-weight: 600; }
@@ -681,7 +762,7 @@ watch(() => settingsStore.activeProvider, async (newProvider) => {
   cursor: pointer; border: none; transition: all .15s; white-space: nowrap;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
 .btn-primary:hover:not(:disabled) { background: var(--accent-l); }
 .btn-secondary { background: var(--bg-gh); color: var(--t2); border: 1px solid var(--brd); }
 .btn-secondary:hover { color: var(--t1); border-color: var(--brd-a); }
@@ -868,7 +949,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   color: var(--error);
 }
 .status-message.warning {
-  color: #f57c00;
+  color: var(--warning);
 }
 
 .model-select-container {

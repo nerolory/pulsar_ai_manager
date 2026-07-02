@@ -1,42 +1,46 @@
 <template>
   <div class="params-strip">
     <div class="ps-chip" :title="tips.temperature" @click="emit('openParams')">
-      <b>Креативность</b> {{ params.temperature.toFixed(1) }}<span class="tip">(?)</span>
+      <b>{{ t('params_strip.creativity') }}</b> {{ params.temperature.toFixed(1) }}<span class="tip">(?)</span>
     </div>
     <div class="ps-chip" :title="tips.maxTokens" @click="emit('openParams')">
-      <b>Длина ответа</b> {{ params.maxTokens }} токенов
+      <b>{{ t('params_strip.response_length') }}</b> {{ t('common.tokens', { count: params.maxTokens }) }}
     </div>
     <div class="ps-chip" :title="tips.topP" @click="emit('openParams')">
-      <b>Разнообразие слов</b> {{ params.topP.toFixed(1) }}
+      <b>{{ t('params_strip.word_diversity') }}</b> {{ params.topP.toFixed(1) }}
     </div>
     <div class="ps-chip" :title="tips.context">
-      <b>Память чата</b> {{ params.useContext ? 'ВКЛ' : 'ВЫКЛ' }}
+      <b>{{ t('params_strip.chat_memory') }}</b> {{ params.useContext ? t('common.on') : t('common.off') }}
     </div>
-    <div class="ps-chip ps-chip--stream" title="Ответ появляется постепенно, как набор текста">
-      <b>Потоковый вывод</b> ВКЛ
+    <div class="ps-chip ps-chip--stream" :title="tips.streaming">
+      <b>{{ t('params_strip.streaming') }}</b> {{ t('common.on') }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ChatParams } from '@/types'
+import { useI18n } from '@/composables/useI18n'
 
 defineProps<{ params: ChatParams }>()
 const emit = defineEmits<{ openParams: [] }>()
+const { t } = useI18n()
 
-const tips = {
-  temperature: 'Креативность — насколько непредсказуемы ответы. 0 = точно по теме, 2 = очень творчески',
-  maxTokens:   'Длина ответа — максимальное количество слов в одном ответе',
-  topP:        'Разнообразие слов — насколько широко ИИ выбирает слова. Выше = разнообразнее',
-  context:     'Память чата — использовать ли историю предыдущих сообщений',
-}
+const tips = computed(() => ({
+  temperature: t('params_strip.tip_temperature'),
+  maxTokens: t('params_strip.tip_max_tokens'),
+  topP: t('params_strip.tip_top_p'),
+  context: t('params_strip.tip_context'),
+  streaming: t('params_strip.tip_streaming'),
+}))
 </script>
 
 <style scoped>
 .params-strip {
   display: flex; align-items: center; gap: 6px;
   padding: 6px 16px; border-bottom: 1px solid var(--brd);
-  background: rgba(255,255,255,0.015);
+  background: var(--topbar-bg);
   overflow-x: auto; scrollbar-width: none; flex-shrink: 0;
 }
 .params-strip::-webkit-scrollbar { display: none; }

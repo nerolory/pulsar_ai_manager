@@ -9,12 +9,14 @@ or call `app.providers.register_all()` to load all provider modules.
 _PROVIDER_MODULES = [
     "app.providers.openrouter",
     "app.providers.vsellm",
+    "app.providers.openai_provider",
     "app.providers.anthropic",
     "app.providers.groq",
     "app.providers.cerebras",
     "app.providers.qwen",
     "app.providers.mistral",
     "app.providers.gemini",
+    "app.providers.gigachat",
     "app.providers.mock",
     "app.providers.local_llm",
 ]

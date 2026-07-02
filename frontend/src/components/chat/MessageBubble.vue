@@ -3,10 +3,10 @@
     <div class="message__avatar" :class="message.role === 'user' ? 'message__avatar--user' : 'message__avatar--assistant'">
       {{ message.role === 'user' ? 'U' : '◉' }}
     </div>
-    <div class="message__content">
+    <div class="message__content" @contextmenu="onContextMenu">
       <div class="message__meta">
         <span class="message__name" :class="message.role === 'user' ? 'message__name--user' : 'message__name--assistant'">
-          {{ message.role === 'user' ? 'Вы' : ('Ответ от ' + (message.model || 'AI')) }}
+          {{ message.role === 'user' ? t('message.you') : (t('message.response_from') + ' ' + (message.model || t('message.ai'))) }}
         </span>
         <span class="message__time">{{ formatTime(message.createdAt) }}</span>
       </div>
@@ -14,17 +14,15 @@
       <!-- Provider not configured hint -->
       <div v-if="isProviderError" class="message__bubble message__bubble--hint">
         <span class="message__hint-icon">⚙️</span>
-        <span>Провайдер не настроен. Перейдите в
-          <button class="message__hint-link" @click="emit('openSettings')">Настройки → Провайдеры ИИ</button>
-          и подключите один из сервисов.</span>
+        <span>{{ t('chat_messages.provider_error') }}</span>
       </div>
 
       <!-- Balance error with switch suggestion -->
       <div v-else-if="isBalanceError" class="message__bubble message__bubble--hint message__bubble--balance">
         <span class="message__hint-icon">💰</span>
         <span>{{ textContent }}</span>
-        <button v-if="message.freeModelId" class="message__hint-btn" @click="emit('switchModel', message.freeModelId)">Переключиться</button>
-        <button class="message__hint-link" @click="emit('openSettings')">Пополнить баланс</button>
+        <button v-if="message.freeModelId" class="message__hint-btn" @click="emit('switchModel', message.freeModelId)">{{ t('chat_messages.switch_to_free') }}</button>
+        <button class="message__hint-link" @click="emit('openSettings')">{{ t('chat_messages.replenish_balance') }}</button>
       </div>
 
       <!-- Typing indicator -->
@@ -48,7 +46,7 @@
         <button
           class="message__action-btn"
           :class="{ 'message__action-btn--active': isSpeaking }"
-          :title="isSpeaking ? 'Остановить' : 'Прочитать вслух'"
+          :title="isSpeaking ? t('message.stop_reading') : t('message.read_aloud')"
           @click="emit('toggleSpeak', message.id)"
         >
           <svg v-if="!isSpeaking" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -70,6 +68,8 @@
 import { computed } from 'vue'
 import type { ChatMessage, ContentPart, MessageContent } from '@/types'
 import { useMarkdown } from '@/composables/useMarkdown'
+import { useI18n } from '@/composables/useI18n'
+import { useContextMenuProvider } from '@/composables/useContextMenu'
 
 const props = defineProps<{
   message: ChatMessage
@@ -86,6 +86,12 @@ const emit = defineEmits<{
 }>()
 
 const { render } = useMarkdown()
+const { t } = useI18n()
+const { handleContextMenuEvent } = useContextMenuProvider()
+
+function onContextMenu(event: MouseEvent) {
+  handleContextMenuEvent(event, 'readonly', event.currentTarget as HTMLElement)
+}
 
 const PROVIDER_ERROR_PATTERNS = ['No provider configured', 'no_provider']
 const BALANCE_ERROR_PREFIX = 'balance-error-'

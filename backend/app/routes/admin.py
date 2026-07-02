@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from loguru import logger
+import asyncio
+
 from app.database import get_current_schema_version, run_pending_migrations, upgrade_schema
 from app.system_check import get_system_specs, check_hardware_tier, check_cpu_features
 from app.model_downloader import (
@@ -11,8 +13,22 @@ from app.model_downloader import (
     get_storage_info,
 )
 from app.configs.local_models import get_model_info, get_all_models, can_run_model
+from app import download_job_store as job_store
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+async def _run_download_job(model_id: str) -> None:
+    """Background task: download model and update shared job state."""
+    try:
+        def on_progress(done: int, total: int) -> None:
+            asyncio.create_task(job_store.update_progress(model_id, done, total))
+
+        success, message = await download_model(model_id, progress_callback=on_progress)
+        await job_store.finish(model_id, success=success, message=message)
+    except Exception as e:
+        logger.error(f"Background download failed for {model_id}: {e}")
+        await job_store.finish(model_id, success=False, message=str(e))
 
 
 class SchemaVersionResponse(BaseModel):
@@ -100,6 +116,9 @@ class HardwareTierResponse(BaseModel):
     can_run_local_llm: bool
     recommended_model: str | None
     reason: str
+    reason_code: str | None = None
+    reason_params: dict[str, str | float | int] | None = None
+    description_code: str | None = None
 
 
 class SystemCheckResponse(BaseModel):
@@ -136,6 +155,8 @@ class LocalLLMSettingsResponse(BaseModel):
     can_run: bool
     tier: str | None
     message: str
+    message_code: str | None = None
+    message_params: dict[str, str | float | int] | None = None
 
 
 @router.get("/local-llm/settings", response_model=LocalLLMSettingsResponse)
@@ -154,6 +175,7 @@ async def get_local_llm_settings():
                 can_run=tier["can_run_local_llm"],
                 tier=tier["tier"],
                 message="Local LLM is disabled in settings",
+                message_code="local_llm_disabled",
             )
 
         if not tier["can_run_local_llm"]:
@@ -163,6 +185,8 @@ async def get_local_llm_settings():
                 can_run=False,
                 tier=tier["tier"],
                 message=f"System does not meet requirements: {tier['reason']}",
+                message_code=tier.get("reason_code", "system_check_tier_unsupported"),
+                message_params=tier.get("reason_params"),
             )
 
         return LocalLLMSettingsResponse(
@@ -171,6 +195,8 @@ async def get_local_llm_settings():
             can_run=True,
             tier=tier["tier"],
             message=f"System can run local LLM. Recommended: {tier['recommended_model']}",
+            message_code="local_llm_can_run",
+            message_params={"model": tier["recommended_model"] or settings.local_llm_model},
         )
     except Exception as e:
         logger.error(f"Failed to get local LLM settings: {e}")
@@ -192,11 +218,25 @@ async def list_local_models():
         all_models = get_all_models()
         downloaded = get_downloaded_models()
         storage_info = get_storage_info()
+        specs = get_system_specs()
 
-        # Add download status and can_run status to each model
         models_with_status = {}
         for model_id, model_info in all_models.items():
-            models_with_status[model_id] = {**model_info, "downloaded": model_id in downloaded}
+            can_run, reason, reason_code, reason_params = can_run_model(
+                model_id,
+                specs["total_ram_gb"],
+                specs["cpu_cores"],
+                specs["gpu_available"],
+                specs["gpu_vram_gb"] if specs["gpu_vram_gb"] else 0,
+            )
+            models_with_status[model_id] = {
+                **model_info,
+                "downloaded": model_id in downloaded,
+                "can_run": can_run,
+                "can_run_reason": reason,
+                "can_run_reason_code": reason_code,
+                "can_run_reason_params": reason_params,
+            }
 
         return ModelListResponse(
             models=models_with_status, downloaded=downloaded, storage_info=storage_info
@@ -211,20 +251,60 @@ class DownloadModelResponse(BaseModel):
 
     success: bool
     message: str
+    status: str | None = None
+
+
+class DownloadJobResponse(BaseModel):
+    """Single download job status."""
+
+    model_id: str
+    status: str
+    bytes_done: int = 0
+    bytes_total: int = 0
+    percent: int = 0
+    error: str | None = None
+    message: str | None = None
+
+
+class DownloadListResponse(BaseModel):
+    downloads: list[DownloadJobResponse]
+
+
+@router.get("/local-llm/downloads", response_model=DownloadListResponse)
+async def list_local_downloads():
+    """List all tracked download jobs (active and recent)."""
+    jobs = await job_store.list_jobs()
+    return DownloadListResponse(
+        downloads=[DownloadJobResponse(**job.to_dict()) for job in jobs]
+    )
+
+
+@router.get("/local-llm/download/{model_id}/status", response_model=DownloadJobResponse)
+async def get_download_status(model_id: str):
+    """Get download status for a single model."""
+    job = await job_store.get_job(model_id)
+    if not job:
+        return DownloadJobResponse(model_id=model_id, status="idle")
+    return DownloadJobResponse(**job.to_dict())
 
 
 @router.post("/local-llm/download/{model_id}", response_model=DownloadModelResponse)
 async def download_local_model(model_id: str):
-    """Download a local LLM model"""
+    """Start downloading a local LLM model (background job)."""
     try:
-        # Check if model exists
         model_info = get_model_info(model_id)
         if not model_info:
             return DownloadModelResponse(success=False, message=f"Model {model_id} not found")
 
-        # Check if system can run this model
+        if is_model_downloaded(model_id):
+            return DownloadModelResponse(
+                success=True,
+                message=f"Model {model_id} already downloaded",
+                status="completed",
+            )
+
         specs = get_system_specs()
-        can_run, reason = can_run_model(
+        can_run, reason, _, _ = can_run_model(
             model_id,
             specs["total_ram_gb"],
             specs["cpu_cores"],
@@ -237,17 +317,25 @@ async def download_local_model(model_id: str):
                 success=False, message=f"System cannot run this model: {reason}"
             )
 
-        # Download model
-        success = await download_model(model_id)
+        estimated_total = int(model_info["requirements"]["disk_gb"] * 1024**3)
+        job, conflict = await job_store.try_start(model_id, estimated_total)
+        if conflict:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Download already in progress on server",
+                    "job": conflict.to_dict(),
+                },
+            )
 
-        if success:
-            return DownloadModelResponse(
-                success=True, message=f"Model {model_id} downloaded successfully"
-            )
-        else:
-            return DownloadModelResponse(
-                success=False, message=f"Failed to download model {model_id}"
-            )
+        asyncio.create_task(_run_download_job(model_id))
+        return DownloadModelResponse(
+            success=True,
+            message="Download started",
+            status=job.status if job else "downloading",
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to download model {model_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to download model: {str(e)}")
@@ -267,6 +355,9 @@ async def delete_local_model(model_id: str):
         success = delete_model(model_id)
 
         if success:
+            from app.local_inference import unload_engine
+
+            unload_engine(model_id)
             return DeleteModelResponse(
                 success=True, message=f"Model {model_id} deleted successfully"
             )

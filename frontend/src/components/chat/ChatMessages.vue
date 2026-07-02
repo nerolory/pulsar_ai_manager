@@ -3,16 +3,16 @@
     <div v-if="healthLoaded && needsProvider" class="no-provider-banner">
       <div class="npb-icon">⚙️</div>
       <div class="npb-text">
-        <b>Провайдер не настроен</b>
-        <span>Перейдите в <b>Настройки → Провайдеры ИИ</b> и подключите один из сервисов (VseLLM, OpenRouter или Mock для тестирования).</span>
+        <b>{{ t('chat_messages.provider_not_configured') }}</b>
+        <span>{{ t('chat_messages.provider_not_configured_desc') }}</span>
       </div>
-      <button class="npb-btn" @click="emit('openSettings')">Открыть настройки</button>
+      <button class="npb-btn" @click="emit('openSettings')">{{ t('chat_messages.open_settings') }}</button>
     </div>
 
     <div v-else-if="!messages.length" class="msgs-empty">
       <div class="empty-icon">◉</div>
-      <div class="empty-title">Чем могу помочь?</div>
-      <div class="empty-sub">Напишите вопрос или выберите чат из истории</div>
+      <div class="empty-title">{{ t('chat_messages.empty_title') }}</div>
+      <div class="empty-sub">{{ t('chat_messages.empty_subtitle') }}</div>
     </div>
 
     <div
@@ -28,21 +28,19 @@
       <div class="mc">
         <div class="mm">
           <span class="mn" :class="message.role === 'user' ? 'u' : 'ai'">
-            {{ message.role === 'user' ? 'Вы' : ('Ответ от ' + (message.model || 'AI')) }}
+            {{ message.role === 'user' ? t('message.you') : (t('message.response_from') + ' ' + (message.model || t('message.ai'))) }}
           </span>
           <span class="mt">{{ formatTime(message.createdAt) }}</span>
         </div>
         <div v-if="isProviderError(message)" class="bub bub--hint">
           <span class="hint-icon">⚙️</span>
-          <span>Провайдер не настроен. Перейдите в
-            <button class="hint-link" @click="emit('openSettings')">Настройки → Провайдеры ИИ</button>
-            и подключите один из сервисов.</span>
+          <span>{{ t('chat_messages.provider_error') }}</span>
         </div>
         <div v-else-if="isBalanceError(message)" class="bub bub--hint bub--balance">
           <span class="hint-icon">💰</span>
           <span>{{ message.content }}</span>
-          <button v-if="message.freeModelId" class="hint-btn" @click="switchToFreeModel(message.freeModelId)">Переключиться</button>
-          <button class="hint-link" @click="emit('openSettings')">Пополнить баланс</button>
+          <button v-if="message.freeModelId" class="hint-btn" @click="switchToFreeModel(message.freeModelId)">{{ t('chat_messages.switch_to_free') }}</button>
+          <button class="hint-link" @click="emit('openSettings')">{{ t('chat_messages.replenish_balance') }}</button>
         </div>
         <div v-else-if="message.role === 'assistant' && isLast(message.id) && !message.content" class="bub">
           <div class="typing"><div class="td" /><div class="td" /><div class="td" /></div>
@@ -58,7 +56,7 @@
           <button
             class="msg-act-btn"
             :class="{ active: speakingMessageId === message.id }"
-            :title="speakingMessageId === message.id ? 'Остановить' : 'Прочитать вслух'"
+            :title="speakingMessageId === message.id ? t('message.stop_reading') : t('message.read_aloud')"
             @click="toggleSpeak(message)"
           >
             <svg v-if="speakingMessageId !== message.id" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -84,6 +82,8 @@ import { useMarkdown } from '@/composables/useMarkdown'
 import { switchModel } from '@/api/settings'
 import { useSettingsStore } from '@/stores/settings'
 import { useTTS } from '@/composables/useVoice'
+import { useI18n } from '@/composables/useI18n'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps<{
   messages: ChatMessage[]
@@ -98,6 +98,8 @@ const container = ref<HTMLElement | null>(null)
 const { render: renderContent } = useMarkdown()
 const settingsStore = useSettingsStore()
 const { speak, stop: stopTTS, isSpeaking, isSupported: ttsSupported } = useTTS()
+const { t, parseErrorCode } = useI18n()
+const { show: showToast } = useToast()
 const speakingMessageId = ref<string | null>(null)
 
 function toggleSpeak(message: ChatMessage) {
@@ -109,7 +111,12 @@ function toggleSpeak(message: ChatMessage) {
   } else {
     stopTTS()
     speakingMessageId.value = message.id
-    speak(text)
+    const started = speak(text)
+    if (!started) {
+      speakingMessageId.value = null
+      showToast('🔇', t('message.tts_nothing_to_read'), '')
+      return
+    }
     const unsub = watch(isSpeaking, (val) => {
       if (!val) { speakingMessageId.value = null; unsub() }
     })
@@ -153,7 +160,13 @@ async function switchToFreeModel(modelId: string) {
 }
 
 function getTextContent(content: MessageContent): string {
-  if (typeof content === 'string') return content
+  if (typeof content === 'string') {
+    // Parse error codes from backend
+    // Format: [code:param1:param2] or [code]
+    return content.replace(/\[([a-z_]+:[^\]]+)\]/g, (match, errorCode) => {
+      return parseErrorCode(errorCode)
+    })
+  }
   return content.filter(part => part.type === 'text').map(part => part.text ?? '').join(' ')
 }
 
@@ -270,7 +283,7 @@ function handleMsgsClick(e: MouseEvent) {
   flex-shrink: 0; align-self: center;
   padding: 6px 14px; border-radius: var(--rs);
   background: var(--accent); border: none;
-  color: #fff; font-size: 0.86em; font-weight: 500;
+  color: var(--on-accent); font-size: 0.86em; font-weight: 500;
   cursor: pointer; white-space: nowrap; transition: background .15s;
 }
 .npb-btn:hover { background: var(--accent-l); }
@@ -303,7 +316,7 @@ function handleMsgsClick(e: MouseEvent) {
 }
 .message__avatar--assistant {
   background: linear-gradient(135deg, var(--accent), #8B5CF6);
-  color: #fff; font-size: 0.79em;
+  color: var(--on-accent); font-size: 0.79em;
   box-shadow: 0 0 12px rgba(99,102,241,0.4);
 }
 .message__avatar--user { background: var(--bg-gh); color: var(--t2); border: 1px solid var(--brd); }
@@ -342,7 +355,7 @@ function handleMsgsClick(e: MouseEvent) {
   text-decoration: underline; text-underline-offset: 2px;
   transition: color .14s;
 }
-.message__hint-link:hover { color: #fff; }
+.message__hint-link:hover { color: var(--t1); }
 
 .message__image { margin-bottom: 6px; }
 .message__image img {

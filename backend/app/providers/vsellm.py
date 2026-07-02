@@ -15,14 +15,15 @@ class VseLLMProvider(OpenAICompatibleProvider):
     Adds multimodal message logging.
     """
 
-    def __init__(self, api_key: str, model: str = "openai/gpt-4o-mini", **kwargs):
+    def __init__(self, api_key: str, model: str = "openai/gpt-4o-mini", base_url: str | None = None, **kwargs):
         """Initialize VseLLM provider.
 
         Args:
             api_key: VseLLM API key (sk-...).
             model: Model identifier.
+            base_url: Optional custom API base URL.
         """
-        super().__init__(api_key, model, "https://api.vsellm.ru/v1")
+        super().__init__(api_key, model, base_url or "https://api.vsellm.ru/v1")
 
     async def chat(self, request: ChatRequest):
         """Stream chat completion with multimodal logging.

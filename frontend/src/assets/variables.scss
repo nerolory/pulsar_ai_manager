@@ -19,4 +19,49 @@
   --rs: 9px;
   --blur: blur(20px);
   --shadow-pop: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.07);
+
+  --on-accent: #ffffff;
+  --topbar-bg: rgba(255, 255, 255, 0.02);
+  --code-inline-bg: rgba(255, 255, 255, 0.08);
+  --code-header-bg: rgba(255, 255, 255, 0.04);
+  --code-block-bg: rgba(0, 0, 0, 0.35);
+
+  --success: #22c55e;
+  --success-bg: rgba(34, 197, 94, 0.15);
+  --success-dim: rgba(34, 197, 94, 0.35);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.15);
+  --warning-dim: rgba(245, 158, 11, 0.35);
+  --info: #38bdf8;
+  --info-bg: rgba(56, 189, 248, 0.15);
+  --info-dim: rgba(56, 189, 248, 0.35);
+  --error: #ef4444;
+  --error-bg: rgba(239, 68, 68, 0.12);
+  --error-dim: rgba(239, 68, 68, 0.35);
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.15);
+  --disabled: #64748b;
+}
+
+[data-dark="0"] {
+  --topbar-bg: rgba(0, 0, 0, 0.02);
+  --code-inline-bg: rgba(0, 0, 0, 0.06);
+  --code-header-bg: rgba(0, 0, 0, 0.03);
+  --code-block-bg: rgba(0, 0, 0, 0.04);
+
+  --success: #15803d;
+  --success-bg: rgba(34, 197, 94, 0.12);
+  --success-dim: rgba(34, 197, 94, 0.35);
+  --warning: #b45309;
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --warning-dim: rgba(245, 158, 11, 0.35);
+  --info: #0369a1;
+  --info-bg: rgba(56, 189, 248, 0.12);
+  --info-dim: rgba(56, 189, 248, 0.35);
+  --error: #dc2626;
+  --error-bg: rgba(239, 68, 68, 0.1);
+  --error-dim: rgba(239, 68, 68, 0.35);
+  --danger: #dc2626;
+  --danger-bg: rgba(239, 68, 68, 0.12);
+  --disabled: #9ca3af;
 }

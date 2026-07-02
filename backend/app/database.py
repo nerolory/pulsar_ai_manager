@@ -77,6 +77,24 @@ async def init_db() -> None:
         except Exception:
             pass  # column already exists
 
+        # Create model_cache table before optional column migrations
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS model_cache (
+                provider TEXT NOT NULL,
+                model_id TEXT NOT NULL,
+                model_name TEXT NOT NULL,
+                context_length INTEGER DEFAULT 4096,
+                pricing TEXT,
+                free_tier BOOLEAN DEFAULT 0,
+                daily_limit INTEGER,
+                limit_tokens INTEGER,
+                balance REAL,
+                is_free BOOLEAN DEFAULT 0,
+                cached_at INTEGER NOT NULL,
+                PRIMARY KEY (provider, model_id)
+            )
+        """)
+
         # Migration: add model limit columns to model_cache if missing
         try:
             await db.execute("ALTER TABLE model_cache ADD COLUMN daily_limit INTEGER")
@@ -105,29 +123,6 @@ async def init_db() -> None:
             logger.info("Migration: is_free column added to model_cache")
         except Exception:
             pass  # column already exists
-
-        # Clear old cache to force refresh with new schema
-        await db.execute("DELETE FROM model_cache")
-        await db.commit()
-        logger.info("Cleared old model cache to force refresh with new schema")
-
-        # Create model_cache table for caching provider models
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS model_cache (
-                provider TEXT NOT NULL,
-                model_id TEXT NOT NULL,
-                model_name TEXT NOT NULL,
-                context_length INTEGER DEFAULT 4096,
-                pricing TEXT,
-                free_tier BOOLEAN DEFAULT 0,
-                daily_limit INTEGER,
-                limit_tokens INTEGER,
-                balance REAL,
-                is_free BOOLEAN DEFAULT 0,
-                cached_at INTEGER NOT NULL,
-                PRIMARY KEY (provider, model_id)
-            )
-        """)
 
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_model_cache_provider 

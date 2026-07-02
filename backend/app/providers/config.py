@@ -89,10 +89,10 @@ PROVIDER_METADATA: Dict[str, Dict[str, str]] = {
     },
     "gigachat": {
         "name": "GigaChat",
-        "desc": "GigaChat от Сбера — отложен (технический долг)",
-        "key_placeholder": "...",
-        "default_model": "",
-        "base_url": "",
+        "desc": "GigaChat от Сбера — OAuth-ключ из developers.sber.ru",
+        "key_placeholder": "Authorization key...",
+        "default_model": "GigaChat",
+        "base_url": "https://gigachat.devices.sberbank.ru/api/v1",
     },
     "local_llm": {
         "name": "Local LLM",

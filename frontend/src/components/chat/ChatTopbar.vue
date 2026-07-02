@@ -5,12 +5,12 @@
       <div class="tb-sub">{{ subtitle }}</div>
     </div>
 
-    <div v-if="balance" class="balance-badge" :title="'Баланс провайдера'">
+    <div v-if="balance" class="balance-badge" :title="t('topbar.balance_title')">
       <span class="balance-icon">💰</span>
       <span class="balance-value">{{ balance }}</span>
     </div>
 
-    <div v-if="tokenEstimate" class="token-badge" :title="'Примерное количество токенов на текущем балансе'">
+    <div v-if="tokenEstimate" class="token-badge" :title="t('topbar.tokens_title')">
       <span class="token-icon">📝</span>
       <span class="token-value">{{ tokenEstimate }}</span>
     </div>
@@ -18,7 +18,7 @@
     <button
       v-if="health"
       class="llm-badge"
-      :title="'Настройть провайдер'"
+      :title="t('topbar.configure_provider')"
       @click="emit('openSettings')"
     >
       <span class="llm-dot" :class="health.status === 'ok' ? 'ok' : 'err'" />
@@ -27,18 +27,20 @@
     </button>
     <button v-else class="llm-badge llm-badge--warn" @click="emit('openSettings')">
       <span class="llm-dot err" />
-      <span class="llm-name">Нет провайдера</span>
+      <span class="llm-name">{{ t('topbar.no_provider') }}</span>
       <span class="llm-gear">⚙</span>
     </button>
 
-    <button class="tb-btn" title="Очистить историю" @click="emit('clearChat')">🗑</button>
+    <button class="tb-btn" :title="t('topbar.clear_history')" @click="emit('clearChat')">🗑</button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { getBalance, getCapabilities } from '@/api/settings'
+import { getBalance } from '@/api/settings'
+import type { ProviderBalance } from '@/api/settings'
 import { useSettingsStore } from '@/stores/settings'
+import { useI18n } from '@/composables/useI18n'
 import type { HealthStatus } from '@/types'
 
 defineProps<{
@@ -49,10 +51,11 @@ defineProps<{
 const emit = defineEmits<{ clearChat: []; openSettings: [] }>()
 
 const settingsStore = useSettingsStore()
+const { t } = useI18n()
 const balance = ref<string | null>(null)
 const tokenEstimate = ref<string | null>(null)
 
-function calculateTokenEstimate(bal: any) {
+function calculateTokenEstimate(bal: ProviderBalance) {
   console.log('Calculating token estimate')
   console.log('Active model:', settingsStore.activeModel)
   console.log('Models:', settingsStore.models)
@@ -63,7 +66,7 @@ function calculateTokenEstimate(bal: any) {
     
     // Check if model has free tier
     if (currentModel?.free_tier) {
-      tokenEstimate.value = 'бесплатно'
+      tokenEstimate.value = t('topbar.free_tier')
       console.log('Model has free tier')
       return
     }
@@ -78,10 +81,10 @@ function calculateTokenEstimate(bal: any) {
       
       if (avgPrice > 0 && bal.balance > 0) {
         const estimatedTokens = Math.floor(bal.balance / avgPrice)
-        tokenEstimate.value = `~${formatNumber(estimatedTokens)} токенов`
+        tokenEstimate.value = t('topbar.estimated_tokens', { count: formatNumber(estimatedTokens) })
         console.log('Token estimate:', tokenEstimate.value)
       } else if (bal.balance <= 0) {
-        tokenEstimate.value = '0 токенов'
+        tokenEstimate.value = t('topbar.zero_tokens')
         console.log('Negative or zero balance')
       }
     } else {
@@ -94,10 +97,7 @@ function calculateTokenEstimate(bal: any) {
 
 onMounted(async () => {
   try {
-    const [balanceResponse, capabilities] = await Promise.all([
-      getBalance(),
-      getCapabilities()
-    ])
+    const balanceResponse = await getBalance()
     
     if (balanceResponse.balance !== null && balanceResponse.balance !== undefined) {
       const bal = balanceResponse.balance
@@ -151,7 +151,7 @@ function formatNumber(num: number): string {
 .topbar {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 20px; border-bottom: 1px solid var(--brd);
-  background: rgba(255,255,255,0.02); flex-shrink: 0;
+  background: var(--topbar-bg); flex-shrink: 0;
 }
 .tb-info { flex: 1; }
 .tb-title { font-size: 14px; font-weight: 600; color: var(--t1); }
@@ -186,8 +186,8 @@ function formatNumber(num: number): string {
 .llm-dot {
   width: 6px; height: 6px; border-radius: 50%; background: var(--t3);
 }
-.llm-dot.ok { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
-.llm-dot.err { background: #ef4444; }
+.llm-dot.ok { background: var(--success); box-shadow: 0 0 6px var(--success-dim); }
+.llm-dot.err { background: var(--error); }
 .llm-name { color: var(--t2); }
 .llm-gear { color: var(--t3); font-size: 11px; }
 
@@ -198,7 +198,7 @@ function formatNumber(num: number): string {
   display: flex; align-items: center; justify-content: center;
   transition: all .15s;
 }
-.tb-btn:hover { color: #ef4444; border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.08); }
+.tb-btn:hover { color: var(--error); border-color: var(--error-dim); background: var(--error-bg); }
 
 /* ── Responsive styles ──────────────────────────── */
 

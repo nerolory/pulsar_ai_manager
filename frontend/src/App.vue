@@ -77,7 +77,7 @@
         <span class="sp-titlebar__badge">P</span>
         <span>PULSAR<em>AI</em></span>
       </div>
-      <div class="sp-titlebar__title">— THE CLOCKWORK COURIER · {{ page === 'chat' ? 'НОВЫЙ ЧАТ' : 'НАСТРОЙКИ' }} —</div>
+      <div class="sp-titlebar__title">— THE CLOCKWORK COURIER · {{ page === 'chat' ? t('app.new_chat') : t('app.settings') }} —</div>
       <div class="sp-titlebar__controls">
         <button class="sp-win-btn">─</button>
         <button class="sp-win-btn">□</button>
@@ -95,7 +95,7 @@
       <button
         class="sb-toggle"
         :class="{ 'mobile-open': sidebarRef?.isOpen, 'settings-open': page === 'settings', 'sb-toggle--collapsed': sidebarCollapsed }"
-        :title="sidebarCollapsed ? 'Развернуть' : 'Свернуть'"
+        :title="sidebarCollapsed ? t('app.expand') : t('app.collapse')"
         @click="sidebarRef?.toggle()"
       >
         {{ arrowDirection }}
@@ -120,9 +120,9 @@
     <!-- Steampunk: statusbar -->
     <div v-if="isSteampunk" class="sp-statusbar">
       <span class="sp-statusbar__dot"></span>
-      <span>СИСТЕМА ИСПРАВНА</span>
+      <span>{{ t('app.system_ok') }}</span>
       <span class="sp-statusbar__spacer"></span>
-      <span>VseLLM · подключено</span>
+      <span>VseLLM · {{ t('app.connected') }}</span>
       <span>·</span>
       <span>{{ new Date().toLocaleDateString('ru', {day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'·') }} · {{ new Date().toLocaleTimeString('ru', {hour:'2-digit',minute:'2-digit'}) }}</span>
     </div>
@@ -137,22 +137,29 @@
   </div>
 
   <AppToast />
+  <ContextMenu />
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useTheme } from '@/composables/useTheme'
+import { useI18n } from '@/composables/useI18n'
 import AppPreloader from '@/components/AppPreloader.vue'
 import AppToast from '@/components/AppToast.vue'
+import ContextMenu from '@/components/common/ContextMenu.vue'
+import { useContextMenuProvider } from '@/composables/useContextMenu'
 import TheSidebar from '@/components/TheSidebar.vue'
 import TheRightPanel from '@/components/TheRightPanel.vue'
 import ChatView from '@/views/ChatView.vue'
 import SettingsView from '@/views/SettingsView.vue'
 
 const { initTheme, currentThemeId } = useTheme()
+const { t } = useI18n()
 initTheme()
 
 const isSteampunk = computed(() => currentThemeId.value === 'steampunk')
+
+const { closeContextMenu } = useContextMenuProvider()
 
 const loading = ref(true)
 const page = ref<'chat' | 'settings'>('chat')
@@ -162,11 +169,12 @@ const sidebarCollapsed = computed(() => sidebarRef.value?.collapsed ?? false)
 const isMobile = computed(() => window.innerWidth < 768)
 const arrowDirection = computed(() => {
   if (isMobile.value) {
-    console.log(!sidebarRef.value?.isOpen, sidebarCollapsed.value, 1)
     return !sidebarRef.value?.isOpen ? '›' : '‹'
   }
-  return sidebarCollapsed ? '›' : '‹'
+  return sidebarCollapsed.value ? '›' : '‹'
 })
+
+watch(page, () => closeContextMenu())
 </script>
 
 <style>

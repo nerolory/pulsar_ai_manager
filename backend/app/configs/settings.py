@@ -16,9 +16,12 @@ class Settings(BaseSettings):
     log_enabled: bool = True
     mock_mode: bool = False
     electron_mode: bool = False
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
-    local_llm_enabled: bool = False
-    local_llm_model: str = "phi-3-mini"
+    cors_origins: str = (
+        "http://localhost:5173,http://localhost:3000,"
+        "http://localhost:15173,http://localhost:18081"
+    )
+    local_llm_enabled: bool = True
+    local_llm_model: str = "phi-3-mini-3.8b"
 
     @property
     def cors_origins_list(self) -> List[str]:

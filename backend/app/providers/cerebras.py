@@ -12,14 +12,15 @@ class CerebrasProvider(OpenAICompatibleProvider):
     Inherits unified error handling from OpenAICompatibleProvider.
     """
 
-    def __init__(self, api_key: str, model: str = "llama3.1-70b", **kwargs):
+    def __init__(self, api_key: str, model: str = "llama3.1-70b", base_url: str | None = None, **kwargs):
         """Initialize Cerebras provider.
 
         Args:
             api_key: Cerebras API key.
             model: Model identifier.
+            base_url: Optional custom API base URL.
         """
-        super().__init__(api_key, model, "https://api.cerebras.ai/v1")
+        super().__init__(api_key, model, base_url or "https://api.cerebras.ai/v1")
 
     def get_capabilities(self) -> ProviderCapabilities:
         """Return Cerebras-specific capabilities."""

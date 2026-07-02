@@ -2,6 +2,8 @@
 
 LLM chatbot with support for multiple providers (VseLLM, OpenRouter, Mock).
 
+**🇷🇺 Russian documentation available in [docs/README.md](docs/README.md)**
+
 ## Installation
 
 ### Via Installer (Windows)
@@ -17,12 +19,20 @@ LLM chatbot with support for multiple providers (VseLLM, OpenRouter, Mock).
 git clone <repo-url>
 cd llm_chat
 
-# Run in development mode
-docker-compose --profile dev up -d
+# Development (backend http://localhost:18080, frontend http://localhost:15173)
+docker-compose up -d
 
-# Run in production mode
+# Production frontend (http://localhost:18081)
 docker-compose --profile prod up -d
 ```
+
+**Ports (chosen to avoid conflicts with other local projects):**
+
+| Service       | URL                      |
+|---------------|--------------------------|
+| Backend API   | http://localhost:18080   |
+| Frontend dev  | http://localhost:15173   |
+| Frontend prod | http://localhost:18081   |
 
 ### Local Development
 

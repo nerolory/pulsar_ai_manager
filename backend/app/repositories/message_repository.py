@@ -1,5 +1,6 @@
 """Message repository — CRUD operations for messages table."""
 
+from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
 

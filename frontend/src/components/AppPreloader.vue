@@ -17,7 +17,7 @@
       </div>
 
       <div class="splash__brand">Pulsar<em>AI</em></div>
-      <div class="splash__motto">«механический разум, заведённый ключом любопытства»</div>
+      <div class="splash__motto">{{ t('preloader.motto') }}</div>
 
       <div class="divider-ornate"></div>
 
@@ -44,27 +44,29 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { STORAGE_KEY } from '@/composables/useTheme'
+import { useI18n } from '@/composables/useI18n'
 
 const emit = defineEmits<{ done: [] }>()
 
+const { t, translations } = useI18n()
 const themeId = localStorage.getItem(STORAGE_KEY) ?? 'dark'
 const isSteampunk = computed(() => themeId === 'steampunk')
 
-const statuses = [
-  'ИНИЦИАЛИЗАЦИЯ',
-  'ЗАГРУЗКА КОНФИГУРАЦИИ',
-  'ПОДКЛЮЧЕНИЕ К СЕРВИСАМ',
-  'ПРОВЕРКА API-КЛЮЧЕЙ',
-  'ГОТОВО',
-]
-const status = ref(statuses[0])
+const statuses = computed(() => {
+  const list = translations.value?.preloader?.statuses
+  return Array.isArray(list) && list.length > 0
+    ? list
+    : ['…', '…', '…', '…', '…']
+})
+const status = ref('')
 
 onMounted(() => {
+  status.value = statuses.value[0] ?? ''
   let i = 0
   const interval = setInterval(() => {
     i++
-    if (i < statuses.length) status.value = statuses[i]
-    if (i >= statuses.length - 1) clearInterval(interval)
+    if (i < statuses.value.length) status.value = statuses.value[i]
+    if (i >= statuses.value.length - 1) clearInterval(interval)
   }, 500)
   setTimeout(() => emit('done'), 2800)
 })

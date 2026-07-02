@@ -60,13 +60,19 @@ export async function streamChat(
 
     const decoder = new TextDecoder()
     while (true) {
+      if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError')
+      }
       const { done, value } = await reader.read()
       if (done) break
       onChunk(decoder.decode(value, { stream: true }))
     }
     onDone()
   } catch (error) {
-    if ((error as Error).name === 'AbortError') return
+    if ((error as Error).name === 'AbortError') {
+      onError(error instanceof Error ? error : new DOMException('Aborted', 'AbortError'))
+      return
+    }
     onError(error instanceof Error ? error : new Error(String(error)))
   }
 }

@@ -8,6 +8,7 @@ from mistralai import Mistral
 
 from app.providers.base import BaseLLMProvider
 from app.providers.factory import ProviderFactory
+from app.providers.media_utils import to_mistral_content
 from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 from app.exceptions import (
     AuthenticationError,
@@ -82,7 +83,10 @@ class MistralProvider(BaseLLMProvider):
         try:
             messages = []
             for msg in request.messages:
-                messages.append({"role": msg.role, "content": msg.content})
+                content = msg.content
+                if isinstance(content, list):
+                    content = await to_mistral_content(content)
+                messages.append({"role": msg.role, "content": content})
 
             if request.system_prompt:
                 messages.insert(0, {"role": "system", "content": request.system_prompt})

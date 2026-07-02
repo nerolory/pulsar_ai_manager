@@ -14,6 +14,19 @@ import mimetypes
 from app.paths import UPLOADS_DIR
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
+
+
+def _safe_upload_path(file_id: str):
+    """Resolve file path and ensure it stays inside UPLOADS_DIR."""
+    if not file_id or ".." in file_id or file_id.startswith(("/", "\\")):
+        return None
+    base = UPLOADS_DIR.resolve()
+    path = (UPLOADS_DIR / file_id).resolve()
+    try:
+        path.relative_to(base)
+    except ValueError:
+        return None
+    return path
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 MAX_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -64,8 +77,8 @@ async def get_file(file_id: str):
     Raises:
         HTTPException: 404 if the file does not exist.
     """
-    path = UPLOADS_DIR / file_id
-    if not path.exists() or not path.is_file():
+    path = _safe_upload_path(file_id)
+    if path is None or not path.exists() or not path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
     media_type, _ = mimetypes.guess_type(str(path))
     return FileResponse(str(path), media_type=media_type or "application/octet-stream")

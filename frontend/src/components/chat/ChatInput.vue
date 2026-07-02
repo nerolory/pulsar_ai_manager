@@ -3,7 +3,7 @@
     <div v-if="attachedImages.length" class="chat-input__previews">
       <div v-for="(img, index) in attachedImages" :key="index" class="chat-input__preview">
         <img :src="img.dataUrl" />
-        <button class="chat-input__preview-remove" @click="removeImage(index)" title="Удалить">✕</button>
+        <button class="chat-input__preview-remove" @click="removeImage(index)" :title="t('chat.delete_chat')">✕</button>
       </div>
     </div>
     <div class="chat-input__wrapper">
@@ -11,19 +11,20 @@
         ref="ta"
         v-model="text"
         class="chat-input__textarea"
-        placeholder="Напишите сообщение..."
+        :placeholder="t('chat.input_placeholder')"
         rows="1"
         @keydown.enter.exact.prevent="submit"
         @keydown.enter.shift.exact.prevent="newline"
         @input="autoResize"
         @paste="onPaste"
+        @contextmenu="onContextMenu"
       />
       <div class="chat-input__actions">
         <button
           v-if="voiceSupported"
           class="chat-input__action-btn chat-input__action-btn--mic"
           :class="{ 'chat-input__action-btn--recording': voiceState === 'recording', 'chat-input__action-btn--processing': voiceState === 'processing' }"
-          :title="voiceState === 'recording' ? 'Остановить запись' : voiceState === 'processing' ? 'Обработка...' : 'Голосовой ввод'"
+          :title="voiceState === 'recording' ? t('input.recording') : voiceState === 'processing' ? t('input.processing') : t('input.voice_input')"
           :disabled="voiceState === 'processing'"
           @click="onVoiceToggle"
         >
@@ -36,7 +37,7 @@
           <span v-else-if="voiceState === 'recording'" class="chat-input__mic-pulse">●</span>
           <span v-else class="chat-input__mic-spin">⟳</span>
         </button>
-        <button class="chat-input__action-btn" title="Прикрепить изображение" @click="openFilePicker">
+        <button class="chat-input__action-btn" :title="t('input.attach_image')" @click="openFilePicker">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B7355" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="#E8E8E8"></path>
             <circle cx="12" cy="13" r="4" fill="#A0A0A0"></circle>
@@ -53,21 +54,22 @@
         <button
           class="chat-input__tune-btn"
           :class="{ 'chat-input__tune-btn--active': tuneOpen }"
-          data-tip="Тонкая настройка"
+          :data-tip="t('input.fine_tune')"
           title=""
           @click="emit('toggleTune')"
         >⚙</button>
         <button
           class="chat-input__send-btn"
           :class="{ 'chat-input__send-btn--stop': streaming }"
-          :title="streaming ? 'Остановить' : 'Отправить'"
+          :title="streaming ? t('chat.stop') : uploadingImages ? t('input.uploading') : t('chat.send')"
+          :disabled="uploadingImages && !streaming"
           @click="streaming ? emit('stop') : submit()"
         >
           {{ streaming ? '■' : '↑' }}
         </button>
       </div>
     </div>
-    <div class="chat-input__hint">Enter — отправить · Shift+Enter — перенос строки</div>
+    <div class="chat-input__hint">{{ t('input.hint') }}</div>
   </div>
 </template>
 
@@ -76,6 +78,9 @@ import { ref, nextTick } from 'vue'
 import type { ContentPart } from '@/types'
 import { useVoice } from '@/composables/useVoice'
 import { useToast } from '@/composables/useToast'
+import { useI18n } from '@/composables/useI18n'
+import { useContextMenuProvider } from '@/composables/useContextMenu'
+import { uploadImage } from '@/api/uploads'
 
 defineProps<{ streaming: boolean; tuneOpen: boolean }>()
 const emit = defineEmits<{
@@ -87,9 +92,15 @@ const emit = defineEmits<{
 const text = ref('')
 const ta = ref<HTMLTextAreaElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+const { t } = useI18n()
 
 const { state: voiceState, isSupported: voiceSupported, toggle: toggleVoice } = useVoice()
 const { show: showToast } = useToast()
+const contextMenu = useContextMenuProvider()
+
+function onContextMenu(event: MouseEvent) {
+  if (ta.value) contextMenu.handleContextMenuEvent(event, 'editable', ta.value)
+}
 
 function onVoiceToggle() {
   toggleVoice(
@@ -98,13 +109,14 @@ function onVoiceToggle() {
       nextTick(() => autoResize())
     },
     (err) => {
-      showToast('🎤', 'Голос', `Ошибка: ${err}`, 3000)
+      showToast('🎤', t('voice.title'), t('voice.error', { message: err }), 3000)
     }
   )
 }
 
 interface AttachedImage { dataUrl: string; file: File }
 const attachedImages = ref<AttachedImage[]>([])
+const uploadingImages = ref(false)
 
 function openFilePicker() {
   fileInput.value?.click()
@@ -146,20 +158,31 @@ function addImageFile(file: File): Promise<void> {
   })
 }
 
-function submit() {
-  const t = text.value.trim()
-  if (!t && attachedImages.value.length === 0) return
+async function submit() {
+  const messageText = text.value.trim()
+  if (!messageText && attachedImages.value.length === 0) return
+  if (uploadingImages.value) return
 
   if (attachedImages.value.length > 0) {
-    const parts: ContentPart[] = []
-    if (t) parts.push({ type: 'text', text: t })
-    for (const img of attachedImages.value) {
-      parts.push({ type: 'image_url', image_url: { url: img.dataUrl } })
+    uploadingImages.value = true
+    try {
+      const parts: ContentPart[] = []
+      if (messageText) parts.push({ type: 'text', text: messageText })
+      for (const img of attachedImages.value) {
+        const uploaded = await uploadImage(img.file)
+        parts.push({ type: 'image_url', image_url: { url: uploaded.url } })
+      }
+      emit('send', messageText, parts)
+      attachedImages.value = []
+    } catch (error) {
+      console.error('Image upload failed:', error)
+      showToast('❌', t('app.brand'), t('input.upload_failed'), 4000)
+      return
+    } finally {
+      uploadingImages.value = false
     }
-    emit('send', t, parts)
-    attachedImages.value = []
   } else {
-    emit('send', t)
+    emit('send', messageText)
   }
 
   text.value = ''
@@ -188,7 +211,7 @@ function autoResize() {
 <style scoped>
 .chat-input {
   padding: 12px 16px 14px; border-top: 1px solid var(--brd);
-  background: rgba(255,255,255,0.02); flex-shrink: 0;
+  background: var(--topbar-bg); flex-shrink: 0;
 }
 .chat-input__wrapper {
   display: flex; align-items: center; gap: 8px;
@@ -239,13 +262,13 @@ function autoResize() {
 .chat-input__send-btn {
   width: 32px; height: 32px; border-radius: 8px;
   background: var(--accent); border: none;
-  color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+  color: var(--on-accent); font-size: 16px; font-weight: 700; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all .15s; flex-shrink: 0;
 }
 .chat-input__send-btn:hover { background: var(--accent-l); }
-.chat-input__send-btn--stop { background: rgba(239,68,68,0.8); }
-.chat-input__send-btn--stop:hover { background: #ef4444; }
+.chat-input__send-btn--stop { background: var(--error); opacity: 0.85; }
+.chat-input__send-btn--stop:hover { background: var(--error); opacity: 1; }
 
 .chat-input__hint { font-size: 10px; color: var(--t3); margin-top: 6px; text-align: center; }
 
@@ -264,17 +287,17 @@ function autoResize() {
   position: absolute; top: -6px; right: -6px;
   width: 18px; height: 18px; border-radius: 50%;
   background: rgba(239,68,68,0.85); border: none;
-  color: #fff; font-size: 9px; font-weight: 700;
+  color: var(--on-accent); font-size: 9px; font-weight: 700;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   line-height: 1;
 }
-.chat-input__preview-remove:hover { background: #ef4444; }
+.chat-input__preview-remove:hover { background: var(--error); }
 .chat-input__file-input { display: none; }
 
 .chat-input__action-btn--recording {
-  color: #ef4444;
-  border-color: rgba(239,68,68,0.5);
-  background: rgba(239,68,68,0.1);
+  color: var(--error);
+  border-color: var(--error-dim);
+  background: var(--error-bg);
 }
 .chat-input__action-btn--processing {
   color: var(--accent-l);

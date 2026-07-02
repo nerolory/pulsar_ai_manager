@@ -33,6 +33,9 @@ class HardwareTier(TypedDict):
     can_run_local_llm: bool
     recommended_model: str | None
     reason: str
+    reason_code: str
+    reason_params: dict[str, str | float | int] | None
+    description_code: str
 
 
 # Minimum requirements for each tier
@@ -41,19 +44,19 @@ REQUIREMENTS = {
         "ram_gb": 4,
         "cpu_cores": 2,
         "disk_gb": 5,
-        "description": "Very light: < 1GB RAM, CPU only (базовые ответы)",
+        "description_code": "system_check_very_light",
     },
     "light": {
         "ram_gb": 8,
         "cpu_cores": 4,
         "disk_gb": 10,
-        "description": "Light: 2-4GB RAM, CPU only (расширенные ответы)",
+        "description_code": "system_check_light",
     },
     "medium": {
         "ram_gb": 16,
         "cpu_cores": 6,
         "disk_gb": 20,
-        "description": "Medium: 8GB RAM, CPU/GPU (полноценный помощник)",
+        "description_code": "system_check_medium",
     },
 }
 
@@ -219,8 +222,11 @@ def check_hardware_tier(specs: SystemSpecs) -> HardwareTier:
         return HardwareTier(
             tier="medium",
             can_run_local_llm=True,
-            recommended_model="Phi-3-medium (3.8B) or Qwen-1.5B",
+            recommended_model="Phi-3-medium (3.8B) or Qwen-1.5-7B",
             reason="System meets medium tier requirements",
+            reason_code="system_check_tier_medium",
+            reason_params=None,
+            description_code=REQUIREMENTS["medium"]["description_code"],
         )
 
     # Check light tier
@@ -234,6 +240,9 @@ def check_hardware_tier(specs: SystemSpecs) -> HardwareTier:
             can_run_local_llm=True,
             recommended_model="Phi-3-mini (3.8B) quantized",
             reason="System meets light tier requirements",
+            reason_code="system_check_tier_light",
+            reason_params=None,
+            description_code=REQUIREMENTS["light"]["description_code"],
         )
 
     # Check very light tier
@@ -245,8 +254,11 @@ def check_hardware_tier(specs: SystemSpecs) -> HardwareTier:
         return HardwareTier(
             tier="very_light",
             can_run_local_llm=True,
-            recommended_model="TinyLlama (1.1B) or Phi-3-mini (2.7B)",
+            recommended_model="TinyLlama (1.1B) or Phi-3-mini (Q4)",
             reason="System meets very light tier requirements",
+            reason_code="system_check_tier_very_light",
+            reason_params=None,
+            description_code=REQUIREMENTS["very_light"]["description_code"],
         )
 
     # Unsupported
@@ -254,7 +266,19 @@ def check_hardware_tier(specs: SystemSpecs) -> HardwareTier:
         tier="unsupported",
         can_run_local_llm=False,
         recommended_model=None,
-        reason=f"Insufficient resources: RAM {specs['total_ram_gb']}GB (min {REQUIREMENTS['very_light']['ram_gb']}GB), CPU cores {specs['cpu_cores']} (min {REQUIREMENTS['very_light']['cpu_cores']})",
+        reason=(
+            f"Insufficient resources: RAM {specs['total_ram_gb']:.1f}GB "
+            f"(min {REQUIREMENTS['very_light']['ram_gb']}GB), CPU cores {specs['cpu_cores']} "
+            f"(min {REQUIREMENTS['very_light']['cpu_cores']})"
+        ),
+        reason_code="system_check_tier_unsupported",
+        reason_params={
+            "ram": round(specs["total_ram_gb"], 1),
+            "min_ram": REQUIREMENTS["very_light"]["ram_gb"],
+            "cpu_cores": specs["cpu_cores"],
+            "min_cpu": REQUIREMENTS["very_light"]["cpu_cores"],
+        },
+        description_code="system_check_error",
     )
 
 

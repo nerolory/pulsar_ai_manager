@@ -2,17 +2,17 @@
   <Transition name="rp">
     <aside v-if="open" class="rp" :class="{ open }">
       <div class="rp-header">
-        <div class="rp-title">Тонкая настройка</div>
+        <div class="rp-title">{{ t('right_panel.title') }}</div>
         <button class="rp-close" @click="emit('close')">✕</button>
       </div>
 
       <!-- Context toggle -->
       <div class="rp-block">
-        <div class="rp-t">Контекст</div>
+        <div class="rp-t">{{ t('right_panel.context') }}</div>
         <div class="ctx-row">
           <div class="ctx-label">
-            Помнить историю чата
-            <small>ИИ учитывает предыдущие сообщения</small>
+            {{ t('right_panel.remember_history') }}
+            <small>{{ t('right_panel.remember_history_hint') }}</small>
           </div>
           <label class="tog">
             <input v-model="params.useContext" type="checkbox">
@@ -21,7 +21,7 @@
         </div>
         <div v-if="params.useContext" class="sl-g">
           <div class="sl-row">
-            <div class="sl-label">🧠 Глубина памяти<span class="sl-hint">Сообщений в контексте</span></div>
+            <div class="sl-label">🧠 {{ t('right_panel.memory_depth') }}<span class="sl-hint">{{ t('right_panel.memory_depth_hint') }}</span></div>
             <span class="sl-val">{{ params.contextDepth }}</span>
           </div>
           <input v-model.number="params.contextDepth" type="range" min="2" max="40" step="2">
@@ -30,15 +30,16 @@
 
       <!-- System prompt -->
       <div class="rp-block">
-        <div class="rp-t">Системный промпт</div>
-        <div class="rp-hint">Задаёт роль и поведение ИИ для этого чата</div>
+        <div class="rp-t">{{ t('right_panel.system_prompt') }}</div>
+        <div class="rp-hint">{{ t('right_panel.system_prompt_hint') }}</div>
         <div class="sys-ta-wrapper">
           <textarea
             v-model="params.systemPrompt"
             class="sys-ta"
-            placeholder="Например: Отвечай только фактами, без домыслов..."
+            :placeholder="t('right_panel.system_prompt_placeholder')"
             @focus="showPresets = true"
             @blur="hidePresets"
+            @contextmenu="onContextMenu"
           />
           <Transition name="preset-dropdown">
             <div v-if="showPresets" class="preset-dropdown-list">
@@ -54,22 +55,22 @@
             </div>
           </Transition>
         </div>
-        <div class="preset-hint">Начните вводить — появятся быстрые пресеты</div>
+        <div class="preset-hint">{{ t('right_panel.preset_hint') }}</div>
       </div>
 
       <!-- Params -->
       <div class="rp-block">
-        <div class="rp-t">Параметры ответа</div>
+        <div class="rp-t">{{ t('right_panel.response_params') }}</div>
         <div class="sl-g">
           <div class="sl-row">
-            <div class="sl-label">🎨 Креативность<span class="sl-hint">0 = точно, 2 = творчески</span></div>
+            <div class="sl-label">🎨 {{ t('right_panel.creativity') }}<span class="sl-hint">{{ t('right_panel.creativity_hint') }}</span></div>
             <span class="sl-val">{{ params.temperature.toFixed(1) }}</span>
           </div>
           <input v-model.number="params.temperature" type="range" min="0" max="2" step="0.1">
         </div>
         <div class="sl-g">
           <div class="sl-row">
-            <div class="sl-label">📏 Длина ответа<span class="sl-hint">Максимум токенов</span></div>
+            <div class="sl-label">📏 {{ t('right_panel.response_length') }}<span class="sl-hint">{{ t('right_panel.response_length_hint') }}</span></div>
             <span class="sl-val">{{ params.maxTokens }}</span>
           </div>
           <input v-model.number="params.maxTokens" type="range" min="256" max="8192" step="256">
@@ -84,12 +85,20 @@ import { ref, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { storeToRefs } from 'pinia'
 import { usePresets } from '@/composables/usePresets'
+import { useI18n } from '@/composables/useI18n'
+import { useContextMenuProvider } from '@/composables/useContextMenu'
 
 defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const chatStore = useChatStore()
 const { params } = storeToRefs(chatStore)
+const { t } = useI18n()
+const { handleContextMenuEvent } = useContextMenuProvider()
+
+function onContextMenu(event: MouseEvent) {
+  handleContextMenuEvent(event, 'editable', event.currentTarget as HTMLElement)
+}
 const showPresets = ref(false)
 const { presets, loadRecentPresets, saveRecentPreset } = usePresets()
 

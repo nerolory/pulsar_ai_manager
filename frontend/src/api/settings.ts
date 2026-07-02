@@ -8,6 +8,47 @@ export interface ProviderMetadata {
   default_model: string
   base_url: string
   model_name: string
+  model_name_code?: string
+}
+
+export interface SavedProviderEntry {
+  api_key: string | null
+  model: string | null
+}
+
+export interface ProviderConfigResponse {
+  provider: ProviderName | null
+  model: string | null
+  api_key?: string | null
+  all_providers?: Record<string, SavedProviderEntry>
+}
+
+export interface ProvidersListResponse {
+  providers: Record<string, ProviderMetadata>
+}
+
+export interface ProviderBalance {
+  balance: number
+  currency: string
+}
+
+export interface BalanceResponse {
+  balance: ProviderBalance | null
+  message?: string
+  message_code?: string
+}
+
+export interface ModelGroupInfo {
+  id: string
+  name: string
+  description: string
+}
+
+interface HealthResponseRaw {
+  status: string
+  provider?: string
+  model?: string
+  mock_mode?: boolean
 }
 
 export async function configureProvider(config: ProviderConfig): Promise<void> {
@@ -23,24 +64,24 @@ export async function testPrompt(): Promise<{ follows_instructions: boolean; mod
   return await api.post('/settings/test-prompt', {})
 }
 
-export async function getProviderConfig(): Promise<{ provider: ProviderName | null; model: string | null }> {
+export async function getProviderConfig(): Promise<ProviderConfigResponse> {
   return await api.get('/settings/provider')
 }
 
-export async function getProviders(): Promise<Record<string, ProviderMetadata>> {
+export async function getProviders(): Promise<ProvidersListResponse> {
   return await api.get('/settings/providers')
 }
 
 export async function getHealth(): Promise<HealthStatus> {
-  const data = await api.get<any>('/settings/health')
+  const data = await api.get<HealthResponseRaw>('/settings/health')
   if (!data) {
     throw new Error('No data received from health endpoint')
   }
   return {
     status: data.status as HealthStatus['status'],
-    provider: data.provider,
+    provider: data.provider ?? 'none',
     model: data.model,
-    mockMode: data.mock_mode,
+    mockMode: data.mock_mode ?? false,
   }
 }
 
@@ -58,11 +99,11 @@ export async function refreshModels(): Promise<{ models: ModelInfo[]; source: st
   return await api.post('/settings/refresh-models', {})
 }
 
-export async function detectProvider(baseUrl: string): Promise<{ provider: string | null; detected: boolean; compatible: boolean; message?: string }> {
+export async function detectProvider(baseUrl: string): Promise<{ provider: string | null; detected: boolean; compatible: boolean; message?: string; message_code?: string }> {
   return await api.post('/settings/detect-provider', { base_url: baseUrl })
 }
 
-export async function getBalance(): Promise<{ balance: any | null; message?: string }> {
+export async function getBalance(): Promise<BalanceResponse> {
   return await api.get('/settings/balance')
 }
 
@@ -70,7 +111,7 @@ export async function switchModel(model: string): Promise<{ success: boolean; mo
   return await api.post('/settings/switch-model', { model })
 }
 
-export async function getModelGroups(): Promise<{ groups: Record<string, any> }> {
+export async function getModelGroups(): Promise<{ groups: Record<string, ModelGroupInfo> }> {
   return await api.get('/settings/model-groups')
 }
 
@@ -95,6 +136,9 @@ export async function getSystemCheck(): Promise<{
     can_run_local_llm: boolean
     recommended_model: string | null
     reason: string
+    reason_code?: string
+    reason_params?: Record<string, string | number>
+    description_code?: string
   }
   cpu_features: Record<string, boolean>
 }> {
@@ -107,6 +151,8 @@ export async function getLocalLLMSettings(): Promise<{
   can_run: boolean
   tier: string | null
   message: string
+  message_code?: string
+  message_params?: Record<string, string | number>
 }> {
   return await api.get('/admin/local-llm/settings')
 }
@@ -127,6 +173,10 @@ export async function getLocalModels(): Promise<{
     context_length: number
     quantization: string
     downloaded: boolean
+    can_run?: boolean
+    can_run_reason?: string
+    can_run_reason_code?: string
+    can_run_reason_params?: Record<string, string | number>
   }>
   downloaded: string[]
   storage_info: {
@@ -141,8 +191,27 @@ export async function getLocalModels(): Promise<{
 export async function downloadLocalModel(modelId: string): Promise<{
   success: boolean
   message: string
+  status?: string
 }> {
   return await api.post(`/admin/local-llm/download/${modelId}`, {})
+}
+
+export interface LocalDownloadJob {
+  model_id: string
+  status: 'idle' | 'downloading' | 'completed' | 'failed'
+  bytes_done: number
+  bytes_total: number
+  percent: number
+  error?: string | null
+  message?: string | null
+}
+
+export async function getLocalDownloadJobs(): Promise<{ downloads: LocalDownloadJob[] }> {
+  return await api.get('/admin/local-llm/downloads')
+}
+
+export async function getLocalDownloadStatus(modelId: string): Promise<LocalDownloadJob> {
+  return await api.get(`/admin/local-llm/download/${modelId}/status`)
 }
 
 export async function deleteLocalModel(modelId: string): Promise<{

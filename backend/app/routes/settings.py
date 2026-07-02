@@ -5,6 +5,7 @@ running prompt compliance tests, and checking provider health status.
 """
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from app.schemas import (
     SettingsPayload,
     HealthResponse,
@@ -27,6 +28,35 @@ from app.configs.free_models import is_model_free, get_model_group, MODEL_GROUPS
 from loguru import logger
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+
+
+class DetectProviderRequest(BaseModel):
+    """Payload for provider auto-detection from base URL."""
+
+    base_url: str
+
+
+class SwitchModelRequest(BaseModel):
+    """Payload for switching the active model."""
+
+    model: str
+
+
+def _mask_api_key(api_key: str | None) -> str | None:
+    """Return a masked API key safe for client responses."""
+    if not api_key:
+        return None
+    if len(api_key) <= 8:
+        return "***"
+    return f"{api_key[:4]}...{api_key[-4:]}"
+
+
+def _mask_provider_entry(entry: dict) -> dict:
+    """Mask api_key inside a provider config dict."""
+    masked = dict(entry)
+    if "api_key" in masked:
+        masked["api_key"] = _mask_api_key(masked.get("api_key"))
+    return masked
 
 
 def init_provider(
@@ -64,6 +94,23 @@ def init_provider(
     set_provider(instance)
 
 
+async def _fetch_local_llm_models(free: bool = False) -> list[dict]:
+    """List downloaded local models without requiring an active remote provider."""
+    import app.providers
+    from app.providers.factory import ProviderFactory, ProviderConfig
+
+    app.providers.register_all()
+    default_model = ProviderFactory._default_models.get("local_llm", "phi-3-mini-3.8b")
+    instance = ProviderFactory.create(ProviderConfig(provider="local_llm", model=default_model))
+    models = await instance.list_models()
+    models_dict = [model.model_dump() for model in models]
+    for model in models_dict:
+        model["is_free"] = True
+    if free:
+        models_dict = [m for m in models_dict if m.get("is_free", False)]
+    return models_dict
+
+
 @router.post("/provider")
 async def configure_provider(payload: SettingsPayload):
     """Configure and save the active LLM provider.
@@ -92,7 +139,7 @@ async def configure_provider(payload: SettingsPayload):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to configure provider: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to configure provider")
 
 
 @router.get("/provider")
@@ -107,10 +154,12 @@ async def get_provider_config():
     config = load_provider_config()
     data = _load_yaml()
     all_providers = {
-        provider_name: {
-            "api_key": data[provider_name].get("api_key"),
-            "model": data[provider_name].get("model"),
-        }
+        provider_name: _mask_provider_entry(
+            {
+                "api_key": data[provider_name].get("api_key"),
+                "model": data[provider_name].get("model"),
+            }
+        )
         for provider_name in PROVIDERS
         if provider_name in data
     }
@@ -119,7 +168,7 @@ async def get_provider_config():
     return {
         "provider": config.get("provider"),
         "model": config.get("model"),
-        "api_key": config.get("api_key"),
+        "api_key": _mask_api_key(config.get("api_key")),
         "all_providers": all_providers,
     }
 
@@ -136,23 +185,24 @@ async def get_providers_list():
     for provider_id, metadata in PROVIDER_METADATA.items():
         providers_with_model_name[provider_id] = {
             **metadata,
-            "model_name": PROVIDER_MODEL_NAMES.get(provider_id, "Модель"),
+            "model_name": PROVIDER_MODEL_NAMES.get(provider_id, "model_default"),
         }
     return {"providers": providers_with_model_name}
 
 
 @router.post("/detect-provider")
-async def detect_provider(base_url: str):
+async def detect_provider(request: DetectProviderRequest):
     """Detect provider from base URL.
 
     Args:
-        base_url: The base URL to check.
+        request: Request body with base_url to check.
 
     Returns:
         dict: Detected provider ID and compatibility info.
     """
     from urllib.parse import urlparse
 
+    base_url = request.base_url
     parsed = urlparse(base_url)
     domain = parsed.netloc
 
@@ -170,7 +220,7 @@ async def detect_provider(base_url: str):
         "provider": None,
         "detected": False,
         "compatible": True,  # Assume OpenAI-compatible for custom endpoints
-        "message": "OpenAI-совместимый провайдер",
+        "message_code": "provider_openai_compatible",
     }
 
 
@@ -215,7 +265,7 @@ async def test_prompt():
         return PromptTestResponse(follows_instructions=follows, model_answer=answer)
     except Exception as e:
         logger.error(f"Prompt test failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Prompt test failed")
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -270,6 +320,21 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
     Raises:
         HTTPException: If no provider is configured or fetching fails.
     """
+    if provider == "local_llm":
+        cached = await ModelCacheRepository.get("local_llm")
+        if cached and not refresh:
+            models = cached
+            if free:
+                models = [m for m in models if m.get("is_free", False)]
+            return {"models": models, "source": "cache"}
+        try:
+            models_dict = await _fetch_local_llm_models(free=free)
+            await ModelCacheRepository.cache("local_llm", models_dict)
+            return {"models": models_dict, "source": "local"}
+        except Exception as e:
+            logger.error(f"Failed to list local LLM models: {e}")
+            raise HTTPException(status_code=500, detail="Failed to list local models")
+
     if provider:
         # For non-active providers, try cache first
         cached = await ModelCacheRepository.get(provider)
@@ -293,8 +358,12 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
                 "message": "No cached models available. Please activate this provider first.",
             }
         # Provider is active, fetch from API
-        provider_name = type(provider_instance).__name__.replace("Provider", "").lower()
-        if provider_name != provider:
+        from app.storage import load_provider_config
+
+        active_config = load_provider_config() or {}
+        active_provider_id = active_config.get("provider", "")
+        provider_name = provider
+        if active_provider_id != provider:
             # Requested provider is not the active one, return cache if available
             if cached:
                 models = cached
@@ -343,7 +412,10 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
         provider_instance = get_provider()
         if provider_instance is None:
             raise HTTPException(status_code=503, detail="No provider configured")
-        provider_name = type(provider_instance).__name__.replace("Provider", "").lower()
+        from app.storage import load_provider_config
+
+        active_config = load_provider_config() or {}
+        provider_name = active_config.get("provider") or provider
 
     # Try cache first unless refresh is forced
     if not refresh:
@@ -382,7 +454,7 @@ async def get_models(refresh: bool = False, provider: str = None, free: bool = F
         return {"models": models_dict, "source": "api"}
     except Exception as e:
         logger.error(f"Failed to fetch models: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch models: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch models")
 
 
 @router.get("/model-groups")
@@ -396,11 +468,11 @@ async def get_model_groups():
 
 
 @router.post("/switch-model")
-async def switch_model(model: str):
+async def switch_model(request: SwitchModelRequest):
     """Switch to a different model for the current provider.
 
     Args:
-        model: Model ID to switch to.
+        request: JSON body with model ID to switch to.
 
     Returns:
         dict: Success message.
@@ -408,6 +480,7 @@ async def switch_model(model: str):
     Raises:
         HTTPException: If no provider is configured or switching fails.
     """
+    model = request.model
     provider = get_provider()
     if provider is None:
         raise HTTPException(status_code=503, detail="No provider configured")
@@ -426,7 +499,7 @@ async def switch_model(model: str):
         return {"success": True, "model": model}
     except Exception as e:
         logger.error(f"Failed to switch model: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to switch model: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to switch model")
 
 
 @router.post("/refresh-models")
@@ -460,5 +533,5 @@ async def get_balance():
     balance_info = await provider.check_balance()
     logger.info(f"Balance info: {balance_info}")
     if balance_info is None:
-        return {"balance": None, "message": "не отслеживается"}
+        return {"balance": None, "message_code": "balance_not_tracked"}
     return {"balance": balance_info}

@@ -7,7 +7,8 @@ from loguru import logger
 
 from app.providers.base import BaseLLMProvider
 from app.providers.factory import ProviderFactory
-from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
+from app.providers.media_utils import resolve_image_base64
+from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo, ContentPart
 from app.exceptions import (
     AuthenticationError,
     RateLimitError,
@@ -53,22 +54,7 @@ class AnthropicProvider(BaseLLMProvider):
                     if isinstance(msg.content, str):
                         messages.append({"role": msg.role, "content": msg.content})
                     else:
-                        # Handle multimodal content
-                        content = []
-                        for part in msg.content:
-                            if part.type == "text":
-                                content.append({"type": "text", "text": part.text})
-                            elif part.type == "image_url":
-                                content.append(
-                                    {
-                                        "type": "image",
-                                        "source": {
-                                            "type": "base64",
-                                            "media_type": "image/jpeg",
-                                            "data": part.image_url.url,
-                                        },
-                                    }
-                                )
+                        content = await self._to_anthropic_content(msg.content)
                         messages.append({"role": msg.role, "content": content})
 
             # If system_prompt is provided in request, use it
@@ -108,6 +94,25 @@ class AnthropicProvider(BaseLLMProvider):
         except Exception as e:
             logger.error(f"Anthropic unexpected error: {e}")
             raise ProviderError(f"Ошибка провайдера Anthropic: {str(e)}")
+
+    async def _to_anthropic_content(self, parts: List[ContentPart]) -> list[dict]:
+        content = []
+        for part in parts:
+            if part.type == "text":
+                content.append({"type": "text", "text": part.text or ""})
+            elif part.type == "image_url" and part.image_url:
+                media_type, data = await resolve_image_base64(part.image_url.url)
+                content.append(
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": data,
+                        },
+                    }
+                )
+        return content
 
     async def health_check(self) -> bool:
         """Check if Anthropic API is accessible."""

@@ -6,7 +6,7 @@
  */
 
 import { ref } from 'vue'
-import { streamChat, buildStreamRequest } from '@/api/chat'
+import { streamChat } from '@/api/chat'
 import type { StreamRequest } from '@/api/chat'
 
 export interface StreamResult {
@@ -21,6 +21,7 @@ interface StreamOptions {
   maxRetries?: number
   retryDelayMs?: number
   onToken?: (token: string) => void
+  onRetry?: () => void
 }
 
 /**
@@ -47,7 +48,7 @@ export function useStreamChat() {
     request: StreamRequest,
     options: StreamOptions = {},
   ): Promise<StreamResult> {
-    const { maxRetries = 3, retryDelayMs = 1000, onToken } = options
+    const { maxRetries = 3, retryDelayMs = 1000, onToken, onRetry } = options
 
     abortController = new AbortController()
     streaming.value = true
@@ -57,7 +58,12 @@ export function useStreamChat() {
     let aborted = false
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      content = ''
+      if (attempt > 1) {
+        content = ''
+        onRetry?.()
+      } else {
+        content = ''
+      }
       lastError = null
 
       const result = await new Promise<{ success: boolean; error: Error | null }>((resolve) => {
@@ -86,9 +92,31 @@ export function useStreamChat() {
         return { success: true, content, error: null, isBalanceError: false, aborted }
       }
 
+      if (abortController?.signal.aborted) {
+        streaming.value = false
+        abortController = null
+        return { success: true, content, error: null, isBalanceError: false, aborted: true }
+      }
+
       lastError = result.error
       if (attempt < maxRetries) {
-        await new Promise((r) => setTimeout(r, retryDelayMs * attempt))
+        await new Promise((resolve) => {
+          const delay = retryDelayMs * attempt
+          const timer = setTimeout(resolve, delay)
+          abortController?.signal.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer)
+              resolve(undefined)
+            },
+            { once: true },
+          )
+        })
+        if (abortController?.signal.aborted) {
+          streaming.value = false
+          abortController = null
+          return { success: true, content, error: null, isBalanceError: false, aborted: true }
+        }
         abortController = new AbortController()
       }
     }

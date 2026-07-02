@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ProviderConfig, HealthStatus, ProviderName, ProviderCapabilities, ModelInfo } from '@/types'
-import type { ProviderMetadata } from '@/api/settings'
-import { configureProvider, getHealth, getProviderConfig, getCapabilities, getModels, refreshModels, getProviders } from '@/api/settings'
+import type { ProvidersListResponse } from '@/api/settings'
+import { configureProvider, getHealth, getProviderConfig, getCapabilities, getModels, getProviders } from '@/api/settings'
 
 export const useSettingsStore = defineStore('settings', () => {
   const activeProvider = ref<ProviderName | null>(null)
@@ -14,7 +14,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const capabilities = ref<ProviderCapabilities | null>(null)
   const models = ref<ModelInfo[]>([])
   const modelsSource = ref<string>('cache')
-  const providersMetadata = ref<Record<string, ProviderMetadata>>({})
+  const providersMetadata = ref<ProvidersListResponse>({ providers: {} })
 
   async function applyProvider(config: ProviderConfig) {
     loading.value = true
@@ -47,7 +47,7 @@ export const useSettingsStore = defineStore('settings', () => {
       const config = await getProviderConfig()
       activeProvider.value = config.provider
       activeModel.value = config.model
-      savedProviders.value = (config as any).all_providers ?? {}
+      savedProviders.value = config.all_providers ?? {}
     } catch (err) {
       console.error('Failed to load provider config:', err)
     }
@@ -105,7 +105,9 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   const isConfigured = computed(() =>
-    health.value === null || health.value.status !== 'no_provider',
+    health.value !== null
+    && health.value.status !== 'no_provider'
+    && health.value.status !== 'error',
   )
 
   return { 

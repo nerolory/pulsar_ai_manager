@@ -1,24 +1,51 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { ref } from 'vue'
 import { useChatStore } from '@/stores/chat'
-import { computed } from 'vue'
+import { useSettingsStore } from '@/stores/settings'
 
-vi.mock('@/api/chat', () => ({
-  buildStreamRequest: vi.fn((msgs, params) => ({ messages: msgs, ...params })),
-  streamChat: vi.fn(async (_req, onChunk, onDone) => {
-    onChunk('Hello ')
-    onChunk('world')
-    onDone()
-  }),
+vi.mock('@/api/chats', () => ({
+  listChats: vi.fn(async () => []),
+  createChat: vi.fn(async () => ({})),
+  renameChat: vi.fn(async () => ({})),
+  addMessageToChat: vi.fn(async () => ({})),
+  reorderChats: vi.fn(async () => ({})),
+  clearChatMessages: vi.fn(async () => ({})),
+  deleteChat: vi.fn(async () => ({})),
+  getChatMessages: vi.fn(async () => []),
 }))
 
-vi.mock('@/stores/settings', () => ({
-  useSettingsStore: () => ({
-    isConfigured: computed(() => true),
-  }),
-}))
+vi.mock('@/composables/useStreamChat', () => {
+  const streaming = ref(false)
+  return {
+    useStreamChat: () => ({
+      streaming,
+      execute: vi.fn(async (_request, options: { onToken?: (t: string) => void } = {}) => {
+        options.onToken?.('Hello ')
+        options.onToken?.('world')
+        streaming.value = false
+        return {
+          success: true,
+          content: 'Hello world',
+          error: null,
+          isBalanceError: false,
+          aborted: false,
+        }
+      }),
+      abort: vi.fn(),
+    }),
+  }
+})
+
+function configureSettings() {
+  const settings = useSettingsStore()
+  settings.health = { status: 'ok', provider: 'mock', model: 'test-model', mockMode: false }
+  settings.activeProvider = 'mock'
+  settings.activeModel = 'test-model'
+}
 
 describe('useChatStore', () => {
   it('creates a chat with correct defaults', () => {
+    configureSettings()
     const store = useChatStore()
     const chat = store.createChat('Test chat')
     expect(chat.title).toBe('Test chat')
@@ -27,6 +54,7 @@ describe('useChatStore', () => {
   })
 
   it('addMessage appends to active chat', () => {
+    configureSettings()
     const store = useChatStore()
     store.createChat()
     store.addMessage('user', 'Hello')
@@ -35,21 +63,24 @@ describe('useChatStore', () => {
     expect(store.messages[0].content).toBe('Hello')
   })
 
-  it('auto-titles chat from first user message', () => {
+  it('auto-titles chat from first three words of user message', () => {
+    configureSettings()
     const store = useChatStore()
     store.createChat()
     store.addMessage('user', 'What is the meaning of life?')
-    expect(store.activeChat?.title).toBe('What is the meaning of life?')
+    expect(store.activeChat?.title).toBe('What is the...')
   })
 
-  it('auto-truncates long titles to 40 chars + ellipsis', () => {
+  it('does not truncate short single-word titles', () => {
+    configureSettings()
     const store = useChatStore()
     store.createChat()
-    store.addMessage('user', 'A'.repeat(50))
-    expect(store.activeChat?.title).toBe('A'.repeat(40) + '...')
+    store.addMessage('user', 'Hello')
+    expect(store.activeChat?.title).toBe('Hello')
   })
 
   it('deleteChat removes it and switches active', () => {
+    configureSettings()
     const store = useChatStore()
     const c1 = store.createChat('c1')
     const c2 = store.createChat('c2')
@@ -59,6 +90,7 @@ describe('useChatStore', () => {
   })
 
   it('clearMessages empties active chat', () => {
+    configureSettings()
     const store = useChatStore()
     store.createChat()
     store.addMessage('user', 'hi')
@@ -67,20 +99,23 @@ describe('useChatStore', () => {
   })
 
   it('sendMessage streams tokens into assistant message', async () => {
+    configureSettings()
     const store = useChatStore()
     store.createChat()
+    expect(store.needsProvider).toBe(false)
+    expect(store.streaming).toBe(false)
+    expect(store.activeChat).not.toBeNull()
     await store.sendMessage('Hello')
+    expect(store.messages.length).toBe(2)
     const assistant = store.messages.find((message) => message.role === 'assistant')
     expect(assistant?.content).toBe('Hello world')
     expect(store.streaming).toBe(false)
-    expect(store.needsProvider).toBe(false)
   })
 
-  it('needsProvider starts as false and resets to false after successful send', async () => {
+  it('needsProvider is true when health reports no provider', () => {
+    const settings = useSettingsStore()
+    settings.health = { status: 'no_provider', provider: 'none', mockMode: false }
     const store = useChatStore()
-    expect(store.needsProvider).toBe(false)
-    store.createChat()
-    await store.sendMessage('Hello')
-    expect(store.needsProvider).toBe(false)
+    expect(store.needsProvider).toBe(true)
   })
 })

@@ -37,6 +37,7 @@ class DatabaseConnection:
         """
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = await aiosqlite.connect(self._db_path)
+        await self._conn.execute("PRAGMA foreign_keys = ON")
         return self._conn
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -51,4 +52,6 @@ async def get_connection() -> aiosqlite.Connection:
         Active aiosqlite connection.
     """
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    return await aiosqlite.connect(DB_PATH)
+    conn = await aiosqlite.connect(DB_PATH)
+    await conn.execute("PRAGMA foreign_keys = ON")
+    return conn

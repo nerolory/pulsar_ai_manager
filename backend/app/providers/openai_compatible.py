@@ -5,11 +5,13 @@ model listing and capability reporting for all OpenAI-compatible APIs.
 """
 
 from typing import AsyncIterator, List
+
 import httpx
 from openai import AsyncOpenAI
 from loguru import logger
 
 from app.providers.base import BaseLLMProvider
+from app.providers.media_utils import to_openai_content
 from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
 from app.exceptions import (
     AuthenticationError,
@@ -64,17 +66,12 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             ProviderError: Any other provider failure.
         """
         try:
-            messages = [
-                {
-                    "role": message.role,
-                    "content": (
-                        message.content
-                        if isinstance(message.content, str)
-                        else [part.model_dump(exclude_none=True) for part in message.content]
-                    ),
-                }
-                for message in request.messages
-            ]
+            messages = []
+            for message in request.messages:
+                content = message.content
+                if isinstance(content, list):
+                    content = await to_openai_content(content)
+                messages.append({"role": message.role, "content": content})
 
             stream = await self._client.chat.completions.create(
                 model=self.model,
@@ -116,19 +113,19 @@ class OpenAICompatibleProvider(BaseLLMProvider):
 
         if "authentication" in error_str or "invalid api key" in error_str or "401" in error_str:
             logger.error(f"{name} authentication error: {error}")
-            return AuthenticationError(f"Неверный API ключ {name}. Проверьте настройки.")
+            return AuthenticationError(f"auth_error_provider:{name}")
         if "rate limit" in error_str or "429" in error_str:
             logger.error(f"{name} rate limit error: {error}")
-            return RateLimitError(f"Превышен лимит запросов {name}. Попробуйте позже.")
+            return RateLimitError(f"rate_limit_error_provider:{name}")
         if "not found" in error_str or "404" in error_str:
             logger.error(f"{name} model not found: {error}")
-            return ModelNotFoundError(f"Модель {self.model} не найдена. Обновите список моделей.")
+            return ModelNotFoundError(f"model_not_found_provider:{self.model}")
         if "timeout" in error_str or "connection" in error_str:
             logger.error(f"{name} network error: {error}")
-            return NetworkError(f"Ошибка сети при подключении к {name}.")
+            return NetworkError(f"network_error_provider:{name}")
 
         logger.error(f"{name} unexpected error: {error}")
-        return ProviderError(f"Ошибка провайдера {name}: {error}")
+        return ProviderError(f"provider_error_generic:{name}:{error}")
 
     async def health_check(self) -> bool:
         """Check if provider API is accessible."""

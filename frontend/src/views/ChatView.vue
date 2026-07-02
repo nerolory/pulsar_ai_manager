@@ -10,8 +10,8 @@
     <ChatParamsStrip :params="chatStore.params" @open-params="tuneOpen = true" />
     <div class="msgs-wrap">
       <div class="zoom-controls">
-        <button class="zoom-btn zoom-btn--out" title="Уменьшить текст" @click="changeFontSize(-1)">−</button>
-        <button class="zoom-btn zoom-btn--in" title="Увеличить текст" @click="changeFontSize(1)">+</button>
+        <button class="zoom-btn zoom-btn--out" :title="t('chat_view.zoom_out')" @click="changeFontSize(-1)">−</button>
+        <button class="zoom-btn zoom-btn--in" :title="t('chat_view.zoom_in')" @click="changeFontSize(1)">+</button>
       </div>
       <ChatMessages
         :messages="chatStore.messages"
@@ -38,6 +38,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import { useToast } from '@/composables/useToast'
+import { useI18n } from '@/composables/useI18n'
+import { useContextMenuProvider } from '@/composables/useContextMenu'
 import ChatTopbar from '@/components/chat/ChatTopbar.vue'
 import ChatParamsStrip from '@/components/chat/ChatParamsStrip.vue'
 import ChatMessages from '@/components/chat/ChatMessages.vue'
@@ -46,6 +48,8 @@ import ChatInput from '@/components/chat/ChatInput.vue'
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
 const { show: showToast } = useToast()
+const { t } = useI18n()
+const { closeContextMenu } = useContextMenuProvider()
 
 const props = defineProps<{ tuneOpen: boolean }>()
 const emit = defineEmits<{
@@ -64,13 +68,15 @@ function changeFontSize(token: number) {
 
 const subtitle = computed(() => {
   const count = chatStore.messages.length
-  const ctx = chatStore.params.useContext ? 'Контекстный режим' : 'Без контекста'
-  return `${ctx} · ${count} сообщений`
+  const ctx = chatStore.params.useContext ? t('chat_view.context_on') : t('chat_view.context_off')
+  return `${ctx} · ${t('chat_view.messages_count', { count })}`
 })
 
 watch(() => chatStore.error, (error) => {
-  if (error) showToast('⚠️', 'Ошибка', error)
+  if (error) showToast('⚠️', t('common.error'), error)
 })
+
+watch(() => chatStore.activeChatId, () => closeContextMenu())
 
 onMounted(async () => {
   await settingsStore.loadAllSettings()

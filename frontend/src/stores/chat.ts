@@ -7,21 +7,7 @@ import { listChats, createChat as apiCreateChat, renameChat as apiRenameChat, ad
 import { getModels } from '@/api/settings'
 import { useSettingsStore } from '@/stores/settings'
 import { useStreamChat } from '@/composables/useStreamChat'
-
-function filterServiceMessages(content: string): string {
-  if (typeof content !== 'string') return content
-  // Filter out OpenRouter service messages
-  const lines = content.split('\n')
-  const filtered = lines.filter(line => {
-    const trimmed = line.trim()
-    // Remove service messages
-    if (trimmed.startsWith('User Safety:') || trimmed.startsWith('Content Policy:')) {
-      return false
-    }
-    return true
-  })
-  return filtered.join('\n').trim()
-}
+import { useI18n } from '@/composables/useI18n'
 
 const DEFAULT_PARAMS: ChatParams = { // v2
 
@@ -44,6 +30,7 @@ export const useChatStore = defineStore('chat', () => {
   const needsProvider = computed(() => !settingsStore.isConfigured)
   const stream = useStreamChat()
   const streaming = stream.streaming
+  const { t } = useI18n()
 
   // ── Computed ──────────────────────────────────────
   const activeChat = computed<Chat | null>(
@@ -55,10 +42,11 @@ export const useChatStore = defineStore('chat', () => {
   )
 
   // ── Actions ───────────────────────────────────────
-  function createChat(title = 'Новый чат'): Chat {
+  function createChat(title?: string): Chat {
+    const chatTitle = title ?? t('chat.new_chat')
     const chat: Chat = {
       id: nanoid(),
-      title,
+      title: chatTitle,
       messages: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -67,7 +55,7 @@ export const useChatStore = defineStore('chat', () => {
     selectChat(chat.id)
 
     // Save to backend with same id — no id swap needed
-    apiCreateChat(title, chat.id).catch(error => {
+    apiCreateChat(chatTitle, chat.id).catch(error => {
       console.error('Failed to save chat to backend:', error)
     })
 
@@ -80,7 +68,10 @@ export const useChatStore = defineStore('chat', () => {
     if (chat && chat.messages.length === 0) {
       try {
         const messages = await getChatMessages(id, 10)
-        chat.messages = messages
+        // Avoid overwriting messages added while the network request was in flight
+        if (chat.messages.length === 0) {
+          chat.messages = messages
+        }
       } catch (error) {
         console.error('[Chat] failed to load messages for chat:', id, error)
       }
@@ -149,13 +140,28 @@ export const useChatStore = defineStore('chat', () => {
     activeChat.value.updatedAt = Date.now()
     // auto-title from first user message
     if (role === 'user' && activeChat.value.messages.filter((msg) => msg.role === 'user').length === 1) {
-      const textContent = typeof content === 'string' ? content : (content.find(part => part.type === 'text')?.text ?? '📷 Изображение')
+      const imageLabel = t('common.image')
+      const textContent = typeof content === 'string' ? content : (content.find(part => part.type === 'text')?.text ?? imageLabel)
       const words = textContent.trim().split(/\s+/)
       const titleWords = words.slice(0, 3).join(' ')
-      activeChat.value.title = (titleWords || '📷 Изображение') + (words.length > 3 ? '...' : '')
+      activeChat.value.title = (titleWords || imageLabel) + (words.length > 3 ? '...' : '')
       apiRenameChat(activeChat.value.id, activeChat.value.title).catch(error => console.error('[Chat] failed to save title:', error))
     }
     return message
+  }
+
+  function removeMessage(messageId: string) {
+    if (!activeChat.value) return
+    activeChat.value.messages = activeChat.value.messages.filter((msg) => msg.id !== messageId)
+  }
+
+  function getMessageText(content: MessageContent): string {
+    if (typeof content === 'string') return content.trim()
+    return content
+      .filter((part) => part.type === 'text' && part.text)
+      .map((part) => part.text!)
+      .join('\n')
+      .trim()
   }
 
   async function sendMessage(userText: string, imageParts?: ContentPart[]) {
@@ -194,9 +200,18 @@ export const useChatStore = defineStore('chat', () => {
     // Execute streaming with retry via composable
     const result = await stream.execute(request, {
       onToken: (token) => { assistantMsg.content += token },
+      onRetry: () => { assistantMsg.content = '' },
     })
 
     if (result.success) {
+      if (result.aborted) {
+        if (getMessageText(assistantMsg.content)) {
+          persistAssistantMsg(assistantMsg)
+        } else {
+          removeMessage(assistantMsg.id)
+        }
+        return
+      }
       // Save completed assistant message
       if (activeChatId.value) {
         addMessageToChat(activeChatId.value, assistantMsg).catch(e => console.error('[Chat] failed to save assistant msg:', e))
@@ -208,7 +223,7 @@ export const useChatStore = defineStore('chat', () => {
     if (result.isBalanceError) {
       const freeModel = await findFreeModelAlternative(currentModel)
       if (freeModel) {
-        assistantMsg.content = `Недостаточно средств на балансе. Вы можете переключиться на бесплатную версию модели: ${freeModel.name}.`
+        assistantMsg.content = t('chat_messages.insufficient_balance', { model: freeModel.name })
         assistantMsg.id = `balance-error-${nanoid()}`
         assistantMsg.freeModelId = freeModel.id
         persistAssistantMsg(assistantMsg)
@@ -217,8 +232,8 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     // Generic failure
-    const modelName = currentModel || 'AI-модель'
-    assistantMsg.content = `Сервис «${modelName}» сейчас недоступен. Попробуйте позже или выберите другой сервис в настройках.`
+    const modelName = currentModel || t('message.ai')
+    assistantMsg.content = t('chat_messages.service_unavailable', { model: modelName })
     persistAssistantMsg(assistantMsg)
   }
 
@@ -262,7 +277,7 @@ export const useChatStore = defineStore('chat', () => {
         if (idx !== -1) chats.value[idx].messages = msgs
       }
     } catch (err) {
-      error.value = 'Не удалось загрузить чаты'
+      error.value = t('chat_messages.load_chats_failed')
       console.error('Failed to load chats:', err)
     } finally {
       loading.value = false

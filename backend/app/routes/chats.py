@@ -33,6 +33,7 @@ class MessageResponse(BaseModel):
     content: Union[str, list]
     createdAt: int
     model: Optional[str] = None
+    rowid: Optional[int] = None
 
 
 class ChatCreateRequest(BaseModel):
@@ -157,6 +158,21 @@ async def reorder_chats_endpoint(request: ReorderRequest):
         raise HTTPException(status_code=500, detail="Failed to reorder chats")
 
 
+@router.get("/count")
+async def get_chat_stats():
+    """Return the total number of stored chats.
+
+    Returns:
+        dict: Object containing the chat count.
+    """
+    try:
+        count = await ChatRepository.get_count()
+        return {"total_chats": count}
+    except Exception as e:
+        logger.error(f"Failed to get chat stats: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get stats")
+
+
 @router.get("/{chat_id}/messages", response_model=List[MessageResponse])
 async def get_messages(
     chat_id: str,
@@ -182,6 +198,7 @@ async def get_messages(
                 content=deserialize_content(message["content"]),
                 createdAt=message["created_at"],
                 model=message.get("model"),
+                rowid=message.get("rowid"),
             )
             for message in messages
         ]
@@ -262,6 +279,7 @@ async def update_chat(chat_id: str, request: ChatUpdateRequest):
     """
     try:
         await ChatRepository.save(chat_id, request.title)
+        await MessageRepository.clear_by_chat(chat_id)
         for msg in request.messages:
             await MessageRepository.add(
                 chat_id, msg.id, msg.role, serialize_content(msg.content), msg.createdAt, msg.model
@@ -343,18 +361,3 @@ async def delete_chat_endpoint(chat_id: str):
     except Exception as e:
         logger.error(f"Failed to delete chat {chat_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete chat")
-
-
-@router.get("/count")
-async def get_chat_stats():
-    """Return the total number of stored chats.
-
-    Returns:
-        dict: Object containing the chat count.
-    """
-    try:
-        count = await ChatRepository.get_count()
-        return {"total_chats": count}
-    except Exception as e:
-        logger.error(f"Failed to get chat stats: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get stats")

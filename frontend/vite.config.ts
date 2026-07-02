@@ -25,6 +25,25 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/vue') || id.includes('node_modules/@vue') || id.includes('node_modules/pinia')) {
+            return 'vendor-vue'
+          }
+          if (id.includes('node_modules/vue-router')) {
+            return 'vendor-router'
+          }
+          if (id.includes('node_modules/highlight.js')) {
+            return 'vendor-highlight'
+          }
+          if (id.includes('node_modules/marked')) {
+            return 'vendor-marked'
+          }
+        },
+      },
+    },
   },
   base: process.env.ELECTRON ? './' : '/',
 })

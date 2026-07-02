@@ -12,14 +12,19 @@ class QwenProvider(OpenAICompatibleProvider):
     Inherits unified error handling from OpenAICompatibleProvider.
     """
 
-    def __init__(self, api_key: str, model: str = "qwen-max", **kwargs):
+    def __init__(self, api_key: str, model: str = "qwen-max", base_url: str | None = None, **kwargs):
         """Initialize Qwen provider.
 
         Args:
             api_key: Alibaba Cloud DashScope API key.
             model: Model identifier.
+            base_url: Optional custom API base URL.
         """
-        super().__init__(api_key, model, "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        super().__init__(
+            api_key,
+            model,
+            base_url or "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        )
 
     def get_capabilities(self) -> ProviderCapabilities:
         """Return Qwen-specific capabilities."""

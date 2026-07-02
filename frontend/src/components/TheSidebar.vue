@@ -6,9 +6,9 @@
       <div class="logo-txt">Pulsar<em>AI</em></div>
     </div>
 
-    <button class="new-btn" :title="collapsed ? 'Новый чат' : ''" @click="chatStore.createChat()">
+    <button class="new-btn" :title="collapsed ? t('sidebar.new_chat') : ''" @click="chatStore.createChat()">
       <span>＋</span>
-      <span v-if="!collapsed"> Новый чат</span>
+      <span v-if="!collapsed"> {{ t('sidebar.new_chat') }}</span>
     </button>
 
     <template v-if="!collapsed">
@@ -18,7 +18,7 @@
         @drop="onDrop($event)"
       >
         <template v-if="today.length">
-          <div class="sb-label">Сегодня</div>
+          <div class="sb-label">{{ t('sidebar.today') }}</div>
           <div
             v-for="chat in today" :key="chat.id"
             class="ci" :class="{ on: chat.id === activeChatId, dragging: dragId === chat.id }"
@@ -40,12 +40,12 @@
               @click.stop
             />
             <span v-else class="ci-title">{{ chat.title }}</span>
-            <button class="ci-del" title="Удалить чат" @click.stop="chatStore.deleteChat(chat.id)">✕</button>
+            <button class="ci-del" :title="t('sidebar.delete_chat')" @click.stop="chatStore.deleteChat(chat.id)">✕</button>
           </div>
         </template>
 
         <template v-if="older.length">
-          <div class="sb-label">Ранее</div>
+          <div class="sb-label">{{ t('sidebar.older') }}</div>
           <div
             v-for="chat in older" :key="chat.id"
             class="ci" :class="{ on: chat.id === activeChatId, dragging: dragId === chat.id }"
@@ -67,7 +67,7 @@
               @click.stop
             />
             <span v-else class="ci-title">{{ chat.title }}</span>
-            <button class="ci-del" title="Удалить чат" @click.stop="chatStore.deleteChat(chat.id)">✕</button>
+            <button class="ci-del" :title="t('sidebar.delete_chat')" @click.stop="chatStore.deleteChat(chat.id)">✕</button>
           </div>
         </template>
       </div>
@@ -85,14 +85,14 @@
       <div class="sb-user">
         <div class="ava">U</div>
         <div class="u-info">
-          <div class="u-name">Пользователь</div>
+          <div class="u-name">{{ t('common.user') }}</div>
           <div class="u-plan">Free plan</div>
         </div>
       </div>
     </template> -->
 
     <button class="cfg-btn" @click="toggle(); emit('openSettings')">
-      <span v-if="!collapsed">⚙ Настройки</span>
+      <span v-if="!collapsed">⚙ {{ t('sidebar.settings') }}</span>
       <span v-else>⚙</span>
     </button>
   </aside>
@@ -103,10 +103,12 @@ import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useChatStore } from '@/stores/chat'
+import { useI18n } from '@/composables/useI18n'
 
 const emit = defineEmits<{ openSettings: []; collapse: [val: boolean] }>()
 const chatStore = useChatStore()
 const { activeChatId } = storeToRefs(chatStore)
+const { t } = useI18n()
 const collapsed = ref(false)
 const isOpen = ref(false)
 
@@ -240,7 +242,7 @@ function onDropBottom(e: DragEvent) {
   width: 30px; height: 30px; border-radius: 8px;
   background: linear-gradient(135deg, var(--accent), #8B5CF6);
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 800; color: #fff;
+  font-size: 13px; font-weight: 800; color: var(--on-accent);
   box-shadow: 0 0 14px rgba(99,102,241,0.5);
 }
 .logo-txt { font-size: 14px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; }
@@ -284,7 +286,7 @@ function onDropBottom(e: DragEvent) {
   transition: all .12s;
 }
 .ci:hover .ci-del { opacity: 0.7; }
-.ci-del:hover { opacity: 1 !important; color: #ef4444; background: rgba(239,68,68,0.15); }
+.ci-del:hover { opacity: 1 !important; color: var(--error); background: var(--error-bg); }
 
 .ci-input {
   flex: 1; background: var(--bg-s); border: 1px solid var(--accent);
@@ -301,7 +303,7 @@ function onDropBottom(e: DragEvent) {
   width: 28px; height: 28px; border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), #8B5CF6);
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+  font-size: 12px; font-weight: 700; color: var(--on-accent); flex-shrink: 0;
 }
 .u-info { flex: 1; }
 .u-name { font-size: 12px; font-weight: 600; color: var(--t1); }

@@ -35,7 +35,7 @@ const { toasts, dismiss } = useToast()
   font-size: 11px; cursor: pointer; padding: 3px 6px;
   border-radius: 5px; line-height: 1; transition: all .15s;
 }
-.toast-close:hover { color: #ef4444; border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.08); }
+.toast-close:hover { color: var(--error); border-color: var(--error-dim); background: var(--error-bg); }
 .toast-icon { font-size: 18px; flex-shrink: 0; }
 .toast-text { display: flex; flex-direction: column; gap: 2px; }
 .toast-text b { font-size: 12px; font-weight: 600; color: var(--t1); }

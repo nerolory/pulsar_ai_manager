@@ -10,6 +10,13 @@ backend/build/
 backend/logs/
 backend/*.log
 backend/settings.yaml
+backend/data/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+.coverage
+htmlcov/
 
 # Frontend
 frontend/node_modules/
@@ -18,6 +25,9 @@ frontend/.env
 frontend/.env.local
 frontend/.vite/
 frontend/.cache/
+frontend/eslint-report.json
+frontend/coverage/
+*.tsbuildinfo
 
 # Desktop
 desktop/node_modules/
@@ -51,8 +61,12 @@ pulsar-steampunk/
 # UI preview (separate repo)
 ui-preview/
 
-# Plans
-PLAN.md
+# Plans (internal, not for repo)
+PLAN*.md
+docs/PLAN_*.md
+
+# Audit tool outputs (generated logs, not source docs)
+docs/audit_*.txt
 
 # Documentation (technical debt, internal docs)
 docs/technical-debt.md

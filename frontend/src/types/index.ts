@@ -24,3 +24,5 @@ export type {
   ModelInfo,
   HealthStatus,
 } from './provider'
+
+export type { LocaleData } from './i18n'

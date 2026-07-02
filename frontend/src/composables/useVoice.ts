@@ -1,9 +1,13 @@
 import { ref, computed } from 'vue'
 import { transcribeAudio } from '@/api/voice'
+import { sanitizeForTTS } from '@/utils/ttsSanitize'
+import { useI18n } from '@/composables/useI18n'
+import type { SpeechRecognitionInstance } from '@/types/speech-recognition'
 
 export type VoiceState = 'idle' | 'recording' | 'processing'
 
 export function useVoice() {
+  const { t } = useI18n()
   const state = ref<VoiceState>('idle')
   const error = ref<string | null>(null)
   const isSupported = computed(() => {
@@ -12,7 +16,7 @@ export function useVoice() {
 
   let mediaRecorder: MediaRecorder | null = null
   let chunks: Blob[] = []
-  let recognition: any = null
+  let recognition: SpeechRecognitionInstance | null = null
 
   // Try Web Speech API first (instant, no backend needed)
   const hasSpeechRecognition = typeof window !== 'undefined' &&
@@ -20,20 +24,24 @@ export function useVoice() {
 
   function startSpeechRecognition(onResult: (text: string) => void, onError: (e: string) => void) {
     const SpeechRecognitionAPI =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognitionAPI) {
+      onError(t('voice.transcription_error'))
+      return
+    }
     recognition = new SpeechRecognitionAPI()
     recognition.lang = 'ru-RU'
     recognition.interimResults = false
     recognition.maxAlternatives = 1
     recognition.continuous = false
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript
       state.value = 'idle'
       onResult(transcript)
     }
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event) => {
       state.value = 'idle'
       if (event.error !== 'no-speech' && event.error !== 'aborted') {
         onError(event.error)
@@ -75,17 +83,19 @@ export function useVoice() {
           const text = await transcribeAudio(blob)
           state.value = 'idle'
           if (text) onResult(text)
-        } catch (e: any) {
+        } catch (e: unknown) {
           state.value = 'idle'
-          onError(e.message || 'Ошибка транскрипции')
+          const message = e instanceof Error ? e.message : t('voice.transcription_error')
+          onError(message || t('voice.transcription_error'))
         }
       }
 
       mediaRecorder.start()
       state.value = 'recording'
-    } catch (e: any) {
+    } catch (e: unknown) {
       state.value = 'idle'
-      onError(e.message || 'Нет доступа к микрофону')
+      const message = e instanceof Error ? e.message : t('voice.mic_denied')
+      onError(message || t('voice.mic_denied'))
     }
   }
 
@@ -125,20 +135,20 @@ export function useTTS() {
   const isSpeaking = ref(false)
   const isSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
 
-  let currentUtterance: SpeechSynthesisUtterance | null = null
-
-  function speak(text: string, lang = 'ru-RU', rate = 1, pitch = 1) {
-    if (!isSupported) return
+  function speak(text: string, lang = 'ru-RU', rate = 1, pitch = 1): boolean {
+    if (!isSupported) return false
+    const sanitized = sanitizeForTTS(text)
+    if (!sanitized) return false
     stop()
-    const utterance = new SpeechSynthesisUtterance(text)
+    const utterance = new SpeechSynthesisUtterance(sanitized)
     utterance.lang = lang
     utterance.rate = rate
     utterance.pitch = pitch
     utterance.onstart = () => { isSpeaking.value = true }
     utterance.onend = () => { isSpeaking.value = false }
     utterance.onerror = () => { isSpeaking.value = false }
-    currentUtterance = utterance
     window.speechSynthesis.speak(utterance)
+    return true
   }
 
   function stop() {

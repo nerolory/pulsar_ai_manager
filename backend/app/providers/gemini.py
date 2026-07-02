@@ -1,14 +1,16 @@
 """Google Gemini provider using native SDK."""
 
 import asyncio
-from typing import AsyncIterator, List
+import base64
+from typing import AsyncIterator, List, Union
 
 import google.generativeai as genai
 from loguru import logger
 
 from app.providers.base import BaseLLMProvider
 from app.providers.factory import ProviderFactory
-from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo
+from app.providers.media_utils import resolve_image_base64
+from app.schemas import ChatRequest, ProviderCapabilities, ModelInfo, ContentPart
 from app.exceptions import (
     AuthenticationError,
     RateLimitError,
@@ -19,84 +21,78 @@ from app.exceptions import (
 
 
 def _map_gemini_error(error: Exception, model_name: str) -> ProviderError:
-    """Map a Gemini exception to a typed ProviderError.
-
-    Args:
-        error: The original exception.
-        model_name: Current model name for error messages.
-
-    Returns:
-        Typed ProviderError subclass.
-    """
+    """Map a Gemini exception to a typed ProviderError."""
     error_str = str(error).lower()
     if "authentication" in error_str or "invalid api key" in error_str or "permission" in error_str:
         logger.error(f"Gemini authentication error: {error}")
-        return AuthenticationError("Неверный API ключ Gemini. Проверьте настройки.")
+        return AuthenticationError("auth_error_gemini")
     if "rate limit" in error_str or "429" in error_str or "quota" in error_str:
         logger.error(f"Gemini rate limit error: {error}")
-        return RateLimitError("Превышен лимит запросов Gemini. Попробуйте позже.")
+        return RateLimitError("rate_limit_error_gemini")
     if "not found" in error_str or "404" in error_str:
         logger.error(f"Gemini model not found: {error}")
-        return ModelNotFoundError(f"Модель {model_name} не найдена. Обновите список моделей.")
+        return ModelNotFoundError(f"model_not_found_gemini:{model_name}")
     if "timeout" in error_str or "connection" in error_str or "network" in error_str:
         logger.error(f"Gemini network error: {error}")
-        return NetworkError("Ошибка сети при подключении к Gemini.")
+        return NetworkError("network_error_gemini")
     logger.error(f"Gemini unexpected error: {error}")
-    return ProviderError(f"Ошибка провайдера Gemini: {error}")
+    return ProviderError(f"provider_error_gemini:{error}")
 
 
 @ProviderFactory.register(name="gemini", default_model="gemini-2.0-flash-exp")
 class GeminiProvider(BaseLLMProvider):
-    """Google Gemini provider with native SDK support.
-
-    Uses google-generativeai SDK with synchronous streaming
-    wrapped in asyncio.to_thread for non-blocking operation.
-    """
+    """Google Gemini provider with native SDK support."""
 
     def __init__(self, api_key: str, model: str = "gemini-2.0-flash-exp", **kwargs):
-        """Initialize Gemini provider.
-
-        Args:
-            api_key: Google AI API key.
-            model: Model identifier.
-        """
         genai.configure(api_key=api_key)
-        self._genai_model = genai.GenerativeModel(model)
         self.model = model
+        self._genai_model = genai.GenerativeModel(model)
 
     async def chat(self, request: ChatRequest) -> AsyncIterator[str]:
         """Stream chat completion using Gemini native API."""
         try:
-            # Convert messages to Gemini format
-            messages = []
             system_prompt = request.system_prompt
+            history: list[dict] = []
 
             for msg in request.messages:
                 if msg.role == "system":
                     system_prompt = (
                         msg.content if isinstance(msg.content, str) else str(msg.content)
                     )
-                elif msg.role == "user":
-                    messages.append(
-                        msg.content if isinstance(msg.content, str) else str(msg.content)
-                    )
-                elif msg.role == "assistant":
-                    messages.append(f"Assistant: {msg.content}")
+                else:
+                    role = "user" if msg.role == "user" else "model"
+                    parts = await self._to_gemini_parts(msg.content)
+                    history.append({"role": role, "parts": parts})
 
-            # Combine messages into a single prompt for Gemini
-            prompt = "\n".join(messages)
+            if system_prompt:
+                model = genai.GenerativeModel(self.model, system_instruction=system_prompt)
+            else:
+                model = self._genai_model
 
-            # Set generation config
             generation_config = genai.types.GenerationConfig(
                 temperature=request.temperature,
                 top_p=request.top_p,
                 max_output_tokens=request.max_tokens,
             )
 
-            # Stream response (run in thread to avoid blocking)
             def _stream():
-                return self._genai_model.generate_content(
-                    prompt,
+                if not history:
+                    return model.generate_content(
+                        "",
+                        generation_config=generation_config,
+                        stream=True,
+                    )
+                if len(history) == 1:
+                    return model.generate_content(
+                        history[0]["parts"],
+                        generation_config=generation_config,
+                        stream=True,
+                    )
+                last = history[-1]
+                previous = history[:-1]
+                chat = model.start_chat(history=previous)
+                return chat.send_message(
+                    last["parts"],
                     generation_config=generation_config,
                     stream=True,
                 )
@@ -117,6 +113,24 @@ class GeminiProvider(BaseLLMProvider):
             raise
         except Exception as e:
             raise _map_gemini_error(e, self.model) from e
+
+    async def _to_gemini_parts(self, content: Union[str, List[ContentPart]]) -> list:
+        if isinstance(content, str):
+            return [content]
+
+        parts = []
+        for part in content:
+            if part.type == "text":
+                parts.append(part.text or "")
+            elif part.type == "image_url" and part.image_url:
+                media_type, data = await resolve_image_base64(part.image_url.url)
+                parts.append(
+                    {
+                        "mime_type": media_type,
+                        "data": base64.b64decode(data),
+                    }
+                )
+        return parts
 
     async def health_check(self) -> bool:
         """Check if Gemini API is accessible."""
